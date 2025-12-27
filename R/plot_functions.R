@@ -1,0 +1,163 @@
+plot_scatter_rmse <- function(data,
+                              metric = "RMSE_Score",
+                              output_file = "scatter_rmse.png",
+                              width = 200,
+                              height = 150,
+                              unit = "mm",
+                              dpi = 600,
+                              max_cells_per_file = 2000,
+                              color_limits = NULL) {
+    # Check required columns
+    if (!all(c("FSC-A", "SSC-A", metric, "File") %in% colnames(data))) {
+        stop(paste("Data must contain FSC-A, SSC-A, File and", metric, "columns"))
+    }
+
+    # Subsample per file for speed
+    data <- data |>
+        dplyr::group_by(File) |>
+        dplyr::slice_sample(n = max_cells_per_file) |>
+        dplyr::ungroup()
+        
+    plot_data <- data.table::copy(data.table::as.data.table(data))
+    
+    # If Relative_RMSE, convert to percentage for better readability
+    legend_name <- metric
+    if (metric == "Relative_RMSE") {
+        plot_data[, Relative_RMSE := Relative_RMSE * 100]
+        legend_name <- "RRMSE (%)"
+        if (is.null(color_limits)) color_limits <- c(0, 5) # Default 0-5% range for RRMSE
+    }
+
+    # Trim outliers for the plot coordinates
+    plot_data <- plot_data |>
+        dplyr::filter(
+            `FSC-A` >= quantile(`FSC-A`, 0.005, na.rm=TRUE) & `FSC-A` <= quantile(`FSC-A`, 0.995, na.rm=TRUE),
+            `SSC-A` >= quantile(`SSC-A`, 0.005, na.rm=TRUE) & `SSC-A` <= quantile(`SSC-A`, 0.995, na.rm=TRUE)
+        ) |>
+        dplyr::arrange(.data[[metric]])
+
+    # Calculate number of columns for facet grid
+    n_files <- length(unique(plot_data$File))
+    ncols <- ceiling(sqrt(n_files))
+
+    p <- ggplot2::ggplot(plot_data, ggplot2::aes(`FSC-A`, `SSC-A`, color = .data[[metric]])) +
+        ggplot2::geom_point(size = 0.2, alpha = 0.6) +
+        ggplot2::scale_color_viridis_c(
+            option = "magma",
+            name = legend_name,
+            limits = color_limits,
+            oob = scales::squish
+        ) +
+        ggplot2::facet_wrap(~File, scales = "fixed", ncol = ncols) +
+        ggplot2::labs(x = "FSC-A", y = "SSC-A") +
+        ggplot2::theme_minimal(base_size = 8) +
+        ggplot2::theme(
+            panel.grid = ggplot2::element_blank(),
+            panel.background = ggplot2::element_rect(fill = "black"), # Dark background makes outliers pop
+            strip.text = ggplot2::element_text(size = 5),
+            axis.text = ggplot2::element_text(size = 5),
+            axis.title = ggplot2::element_text(size = 6),
+            legend.title = ggplot2::element_text(size = 6),
+            legend.text = ggplot2::element_text(size = 5)
+        )
+
+    ggplot2::ggsave(output_file, p, width = width, height = height, units = unit, dpi = dpi)
+}
+
+
+plot_marker_correlations <- function(data, 
+                                     metric = "RMSE_Score",
+                                     markers = NULL,
+                                     output_file = "marker_correlations.png",
+                                     width = 150,
+                                     height = 100,
+                                     unit = "mm",
+                                     dpi = 600,
+                                     max_cells = 5000,
+                                     y_limits = NULL) {
+    if (is.null(markers)) {
+        exclude_cols <- c("RMSE_Score", "Relative_RMSE", "File", "FSC-A", "SSC-A", "FSC-H", "SSC-H")
+        markers <- setdiff(colnames(data), exclude_cols)
+    }
+
+    # Subsample for speed
+    if (nrow(data) > max_cells) {
+        data <- data[sample(nrow(data), max_cells), ]
+    }
+    
+    plot_data <- data.table::copy(data.table::as.data.table(data))
+    y_name <- metric
+    if (metric == "Relative_RMSE") {
+        plot_data[, Relative_RMSE := Relative_RMSE * 100]
+        y_name <- "RRMSE (%)"
+        if (is.null(y_limits)) y_limits <- c(0, 10) # Default 0-10% for correlations
+    }
+
+    long <- tidyr::pivot_longer(plot_data,
+        cols = dplyr::all_of(markers),
+        names_to = "Marker", values_to = "Intensity"
+    )
+
+    # Trim top/bottom 0.5% per marker
+    long <- long |>
+        dplyr::group_by(Marker) |>
+        dplyr::filter(
+            Intensity >= quantile(Intensity, 0.005, na.rm=TRUE) &
+                Intensity <= quantile(Intensity, 0.995, na.rm=TRUE)
+        ) |>
+        dplyr::ungroup()
+
+    p <- ggplot2::ggplot(long, ggplot2::aes(Intensity, .data[[metric]])) +
+        ggplot2::geom_point(size = 0.1, alpha = 0.1) +
+        ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5) +
+        ggplot2::facet_wrap(~Marker, scales = "free_x", ncol = ceiling(length(markers) / 3)) +
+        ggplot2::labs(x = "Unmixed Abundance", y = y_name) +
+        ggplot2::theme_minimal(base_size = 8) +
+        ggplot2::theme(
+            panel.grid.minor = ggplot2::element_blank(),
+            strip.text = ggplot2::element_text(size = 5),
+            axis.text = ggplot2::element_text(size = 5),
+            axis.title = ggplot2::element_text(size = 6)
+        )
+    
+    if (!is.null(y_limits)) {
+        p <- p + ggplot2::coord_cartesian(ylim = y_limits)
+    }
+
+    ggplot2::ggsave(output_file, p, width = width, height = height, units = unit, dpi = dpi)
+}
+
+
+plot_spectra <- function(ref_matrix,
+                         output_file = "spectra_overlay.png",
+                         width = 250,
+                         height = 100,
+                         unit = "mm",
+                         dpi = 600,
+                         theme_custom = NULL) {
+    detectors <- colnames(ref_matrix)
+    fl_pattern <- "^(UV|V|B|YG|R|DUV|IR|FL)[0-9]+"
+    keep <- grepl(fl_pattern, detectors)
+    detectors <- detectors[keep]
+    ref_matrix <- ref_matrix[, detectors, drop = FALSE]
+    intensities <- as.vector(ref_matrix)
+
+    long <- data.frame(
+        Fluorophore = rep(rownames(ref_matrix), ncol(ref_matrix)),
+        Detector = rep(detectors, each = nrow(ref_matrix)),
+        Intensity = intensities
+    )
+
+    long$Detector <- factor(long$Detector, levels = detectors)
+
+    p <- ggplot2::ggplot(long, ggplot2::aes(Detector, Intensity, color = Fluorophore, group = Fluorophore)) +
+        ggplot2::geom_line(linewidth = 0.7) +
+        (if (is.null(theme_custom)) {
+            ggplot2::theme(axis.text.x = ggplot2::element_text(size = 5, angle = 90, hjust = 1, vjust = 0.5))
+        } else {
+            theme_custom
+        }) +
+        ggplot2::labs(x = "Detector", y = "Normalized Intensity")
+
+    ggplot2::ggsave(output_file, p, width = width, height = height, unit = unit, dpi = dpi)
+}

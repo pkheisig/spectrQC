@@ -1,0 +1,7 @@
+export(gating_options)
+export(gate_positive_cells)
+export(calc_residuals)
+export(plot_scatter_rmse)
+export(plot_marker_correlations)
+export(plot_spectra)
+export(build_reference_matrix)

@@ -1,0 +1,127 @@
+Warning message:
+package ‘ggplot2’ was built under R version 4.5.2 
+Loading required package: usethis
+Loading package...
+ℹ Loading SpecCheck
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:data.table’:
+
+    between, first, last
+
+The following object is masked from ‘package:flowCore’:
+
+    filter
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: tidyr
+Loading required package: mclust
+Package 'mclust' version 6.1.2
+Type 'citation("mclust")' for citing this R package in publications.
+
+Attaching package: ‘mclust’
+
+The following object is masked from ‘package:dplyr’:
+
+    count
+
+Loading required package: sp
+Loading required package: scales
+Loading required package: nnls
+Stage 1: Creating AutoSpectral control file...
+AutoSpectral control file saved to: fcs_control_file.csv
+Stage 2: Building reference matrix...
+Processing: 7-AAD Run 1 20251219194947 → type=cells, pattern=7-AAD
+Processing: Alexa 594 Run 1 20251219194041 → type=beads, pattern=Alexa 594
+Processing: Alexa 647 Run 1 20251219194322 → type=beads, pattern=Alexa 647
+Processing: eFluor 506 Fixable Viability Run 1 20251219194859 → type=cells, pattern=Fixable Viability
+Processing: eFluor 780 Fixable Viability Run 1 20251219194755 → type=cells, pattern=Fixable Viability
+Processing: FITC Run 1 20251219194411 → type=beads, pattern=FITC
+Processing: PE Run 1 20251219194145 → type=beads, pattern=PE
+Processing: PE-Cy7 Run 1 20251219194459 → type=beads, pattern=PE-Cy7
+Processing: Unstained 1 Run 1 20251219195036 → type=unstained, pattern=Unstained
+Processing: V450 Run 1 20251219194234 → type=beads, pattern=V450
+Reference matrix saved to reference_matrix.csv
+Warning messages:
+1: Removed 34 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+2: Removed 960 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+3: Removed 1352 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+4: Removed 266 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+5: Removed 49 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+6: Removed 1611 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+7: Removed 921 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+8: Removed 800 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+9: Removed 168 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+10: Removed 1952 rows containing missing values or values outside the scale range
+(`geom_tile()`). 
+Stage 3: Unmixing raw data...
+  Processing: Ad.GSK3B_125_1 Run 1 20251106143051
+  Processing: Ad.GSK3B_125_2 Run 1 20251106144520
+  Processing: Ad.GSK3B_125_3 Run 1 20251106145440
+  Processing: Ad.GSK3B_250_1 Run 1 20251106143349
+  Processing: Ad.GSK3B_250_2 Run 1 20251106144559
+  Processing: Ad.GSK3B_250_3 Run 2 20251106145645
+  Processing: Ad.GSK3B_500_1 Run 1 20251106143712
+  Processing: Ad.GSK3B_500_2 Run 1 20251106144733
+  Processing: Ad.GSK3B_500_3 Run 1 20251106145726
+  Processing: Ad.Luc_500_1 Run 1 20251106142643
+  Processing: Ad.Luc_500_2 Run 1 20251106144332
+  Processing: Ad.Luc_500_3 Run 1 20251106145244
+  Processing: UT_0_1 Run 1 20251106141348
+  Processing: UT_0_2 Run 1 20251106144224
+  Processing: UT_0_3 Run 1 20251106145131
+Generating quality plots...
+`geom_smooth()` using formula = 'y ~ s(x, bs = "cs")'
+                                   File Mean_RRMSE_Pct Median_RRMSE_Pct
+                                 <char>          <num>            <num>
+ 1: Ad.GSK3B_125_1 Run 1 20251106143051      0.4899499        0.3593617
+ 2: Ad.GSK3B_125_2 Run 1 20251106144520      0.4800880        0.3379421
+ 3: Ad.GSK3B_125_3 Run 1 20251106145440      0.4891068        0.3350897
+ 4: Ad.GSK3B_250_1 Run 1 20251106143349      0.6894135        0.4806964
+ 5: Ad.GSK3B_250_2 Run 1 20251106144559      0.6954637        0.4786401
+ 6: Ad.GSK3B_250_3 Run 2 20251106145645      0.6731525        0.4499558
+ 7: Ad.GSK3B_500_1 Run 1 20251106143712      0.8555116        0.6302352
+ 8: Ad.GSK3B_500_2 Run 1 20251106144733      0.9272423        0.7529513
+ 9: Ad.GSK3B_500_3 Run 1 20251106145726      0.9009461        0.6951247
+10:   Ad.Luc_500_1 Run 1 20251106142643      0.4388273        0.3354430
+11:   Ad.Luc_500_2 Run 1 20251106144332      0.3820761        0.2988252
+12:   Ad.Luc_500_3 Run 1 20251106145244      0.4496176        0.3159793
+13:         UT_0_1 Run 1 20251106141348      0.5100099        0.4236263
+14:         UT_0_2 Run 1 20251106144224      0.4789209        0.3957390
+15:         UT_0_3 Run 1 20251106145131      0.4362991        0.3415634
+    Max_RRMSE_Pct Cells_Above_5Pct
+            <num>            <int>
+ 1:      4.936453                0
+ 2:      3.530817                0
+ 3:      6.050152                1
+ 4:     12.035711                2
+ 5:      3.601092                0
+ 6:      3.575189                0
+ 7:      9.601824                1
+ 8:      3.825351                0
+ 9:      3.506614                0
+10:     11.406043                2
+11:      3.676720                0
+12:      3.652142                0
+13:      7.215301                4
+14:      5.780967                1
+15:      3.538580                0
+Analysis complete. Check 'scatter_rel_rmse.png' for visual QC.

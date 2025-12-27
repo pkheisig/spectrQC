@@ -1,0 +1,10 @@
+Package: specRQC
+Title: Spectral Flow Cytometry QC
+Version: 0.1.0
+Authors@R: person("Paul Heisig", email = "p.k.s.heisig@amsterdamumc.nl", role = c("aut", "cre"))
+Description: Validate spectral flow cytometry data by calculating unmixing residuals.
+License: MIT
+Depends: flowCore, ggplot2, dplyr, tidyr, data.table, mclust, sp, scales, nnls
+Suggests: AutoSpectral
+Encoding: UTF-8
+RoxygenNote: 7.2.3
