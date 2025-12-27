@@ -61,10 +61,28 @@ plot_scatter_rmse <- function(data,
             legend.text = ggplot2::element_text(size = 5)
         )
 
-    ggplot2::ggsave(output_file, p, width = width, height = height, units = unit, dpi = dpi)
+    if (!is.null(output_file)) {
+        ggplot2::ggsave(output_file, p, width = width, height = height, units = unit, dpi = dpi)
+    }
+    return(p)
 }
 
 
+
+#' Plot Marker-RRMSE Correlations
+#' 
+#' Plots the unmixed intensity of each marker against the RRMSE.
+#' The red line is a GAM fit representing the trend of unmixing error vs signal.
+#' Ideally, the line should be flat or decreasing. A sharp upward trend indicates 
+#' detector non-linearity or spectral mismatch for that specific fluorophore.
+#' 
+#' @param data Unmixed results data.table
+#' @param metric Metric to plot ("RMSE_Score" or "Relative_RMSE")
+#' @param markers Vector of marker names
+#' @param output_file Path to save plot
+#' @param show_smooth Logical. If TRUE, adds a red trend line (GAM).
+#' @param y_limits Optional y-axis limits
+#' @export
 plot_marker_correlations <- function(data, 
                                      metric = "RMSE_Score",
                                      markers = NULL,
@@ -74,7 +92,8 @@ plot_marker_correlations <- function(data,
                                      unit = "mm",
                                      dpi = 600,
                                      max_cells = 5000,
-                                     y_limits = NULL) {
+                                     y_limits = NULL,
+                                     show_smooth = TRUE) {
     if (is.null(markers)) {
         exclude_cols <- c("RMSE_Score", "Relative_RMSE", "File", "FSC-A", "SSC-A", "FSC-H", "SSC-H")
         markers <- setdiff(colnames(data), exclude_cols)
@@ -109,7 +128,7 @@ plot_marker_correlations <- function(data,
 
     p <- ggplot2::ggplot(long, ggplot2::aes(Intensity, .data[[metric]])) +
         ggplot2::geom_point(size = 0.1, alpha = 0.1) +
-        ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5) +
+        {if(show_smooth) ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"))} +
         ggplot2::facet_wrap(~Marker, scales = "free_x", ncol = ceiling(length(markers) / 3)) +
         ggplot2::labs(x = "Unmixed Abundance", y = y_name) +
         ggplot2::theme_minimal(base_size = 8) +
@@ -124,7 +143,10 @@ plot_marker_correlations <- function(data,
         p <- p + ggplot2::coord_cartesian(ylim = y_limits)
     }
 
-    ggplot2::ggsave(output_file, p, width = width, height = height, units = unit, dpi = dpi)
+    if (!is.null(output_file)) {
+        ggplot2::ggsave(output_file, p, width = width, height = height, units = unit, dpi = dpi)
+    }
+    return(p)
 }
 
 
@@ -159,5 +181,8 @@ plot_spectra <- function(ref_matrix,
         }) +
         ggplot2::labs(x = "Detector", y = "Normalized Intensity")
 
-    ggplot2::ggsave(output_file, p, width = width, height = height, unit = unit, dpi = dpi)
+    if (!is.null(output_file)) {
+        ggplot2::ggsave(output_file, p, width = width, height = height, unit = unit, dpi = dpi)
+    }
+    return(p)
 }

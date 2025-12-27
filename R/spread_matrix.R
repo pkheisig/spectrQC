@@ -1,0 +1,85 @@
+#' Calculate Spectral Spread Matrix (SSM)
+#' 
+#' Quantifies the spreading error introduced by unmixing between fluorophores.
+#' High values indicate that marker i significantly increases the noise in marker j.
+#' 
+#' @param M Reference matrix (Markers x Detectors)
+#' @param method Unmixing method ("OLS" or "WLS")
+#' @param background_noise Background noise used for WLS
+#' @return A matrix (Markers x Markers) representing unmixing spread
+#' @export
+calculate_ssm <- function(M, method = "OLS", background_noise = 100) {
+    # This function estimates unmixing-induced spread analytically.
+    # Spreading error is proportional to the square root of signal intensity.
+    # The analytical estimate for spread in unmixed space is:
+    # Var(Unmixed) = W %*% diag(Poisson_Variance) %*% t(W)
+    
+    # M: Markers x Detectors
+    n_markers <- nrow(M)
+    marker_names <- rownames(M)
+    
+    # Derive unmixing matrix W (Markers x Detectors)
+    W <- derive_unmixing_matrix(M, method = method)
+    
+    # Initialize SSM
+    SSM <- matrix(0, nrow = n_markers, ncol = n_markers)
+    rownames(SSM) <- marker_names
+    colnames(SSM) <- marker_names
+    
+    # For each marker i (the "spilling" marker)
+    for (i in seq_len(n_markers)) {
+        # Assume a unit signal intensity for marker i
+        # The expected photon counts in each detector for marker i is M[i, ]
+        signal_i <- M[i, ] 
+        
+        # Variance in each detector due to marker i (Poisson)
+        # We assume signal is large enough that Shot Noise dominates
+        # Var_detectors = signal_i
+        var_d <- diag(signal_i)
+        
+        # Propagation of variance to unmixed space: W %*% Var_d %*% W^T
+        # Result is n_markers x n_markers
+        unmixed_variance <- W %*% var_d %*% t(W)
+        
+        # The unmixed standard deviation (spread) in all other markers j
+        unmixed_sd <- sqrt(pmax(diag(unmixed_variance), 0))
+        
+        # SSM[i, j] = SD_j / sqrt(Signal_i)
+        # Since we used M[i, ] as the signal, the "total" signal is sum(M[i, ]) or just 1 (since M is normalized)
+        # Traditional SSM uses the square root of the target channel intensity.
+        # Here we normalize by the theoretical contribution.
+        SSM[i, ] <- unmixed_sd
+    }
+    
+    # Set diagonal to NA or 0 as we only care about spillover spread
+    # diag(SSM) <- 0
+    
+    return(SSM)
+}
+
+#' Plot Spectral Spread Matrix
+#' @param SSM Matrix returned by calculate_ssm
+#' @param output_file Path to save the plot
+#' @param width Width of plot in mm
+#' @param height Height of plot in mm
+#' @export
+plot_ssm <- function(SSM, output_file = "spectral_spread_matrix.png", width = 200, height = 180) {
+    long <- as.data.frame(SSM)
+    long$Spilling_Marker <- rownames(SSM)
+    long <- tidyr::pivot_longer(long, cols = -Spilling_Marker, names_to = "Receiving_Marker", values_to = "Spread")
+    
+    p <- ggplot2::ggplot(long, ggplot2::aes(Receiving_Marker, Spilling_Marker, fill = Spread)) +
+        ggplot2::geom_tile() +
+        ggplot2::scale_fill_viridis_c(option = "magma", name = "Spread Factor") +
+        ggplot2::geom_text(ggplot2::aes(label = round(Spread, 2)), color = "white", size = 2) +
+        ggplot2::labs(title = "Spectral Spread Matrix",
+                      subtitle = "Quantifies how noise from marker Y spreads into marker X",
+                      x = "Receiving Marker (Noise)", y = "Spilling Marker (Source)") +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+    
+    if (!is.null(output_file)) {
+        ggplot2::ggsave(output_file, p, width = width, height = height, units = "mm", dpi = 300)
+    }
+    return(p)
+}

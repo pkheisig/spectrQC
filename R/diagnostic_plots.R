@@ -36,7 +36,10 @@ plot_detector_residuals <- function(res_list, top_n = 50, output_file = "detecto
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, size = 6))
     
-    ggplot2::ggsave(output_file, p, width = 250, height = 120, units = "mm", dpi = 300)
+    if (!is.null(output_file)) {
+        ggplot2::ggsave(output_file, p, width = width, height = height, units = "mm", dpi = 300)
+    }
+    return(p)
 }
 
 #' Calculate Negative Population Spread (NPS)
@@ -80,5 +83,8 @@ plot_nps <- function(nps_results, output_file = "nps_plot.png") {
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
     
-    ggplot2::ggsave(output_file, p, width = 200, height = 120, units = "mm", dpi = 300)
+    if (!is.null(output_file)) {
+        ggplot2::ggsave(output_file, p, width = width, height = 120, units = "mm", dpi = 300)
+    }
+    return(p)
 }
