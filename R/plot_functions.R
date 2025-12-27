@@ -41,9 +41,9 @@ plot_scatter_rmse <- function(data,
     ncols <- ceiling(sqrt(n_files))
 
     p <- ggplot2::ggplot(plot_data, ggplot2::aes(`FSC-A`, `SSC-A`, color = .data[[metric]])) +
-        ggplot2::geom_point(size = 0.2, alpha = 0.6) +
-        ggplot2::scale_color_viridis_c(
-            option = "magma",
+        ggplot2::geom_point(size = 0.05, alpha = 0.4) + # Smaller and denser
+        ggplot2::scale_color_gradientn(
+            colors = c("gray90", "gray70", "orange", "red", "black"),
             name = legend_name,
             limits = color_limits,
             oob = scales::squish
@@ -130,6 +130,7 @@ plot_marker_correlations <- function(data,
 
     p <- ggplot2::ggplot(long, ggplot2::aes(Intensity, .data[[metric]])) +
         ggplot2::geom_point(size = 0.1, alpha = 0.1) +
+        {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "gray50", linetype = "dashed", alpha = 0.5)} +
         {if(show_smooth) ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"))} +
         ggplot2::facet_wrap(~Marker, scales = "free_x", ncol = ceiling(length(markers) / 3)) +
         ggplot2::labs(x = "Unmixed Abundance", y = y_name) +
