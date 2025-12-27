@@ -5,9 +5,12 @@
 #' @param file_name Optional file name to add to output
 #' @param method Unmixing method: "OLS" (default), "NNLS", or "WLS" (per-cell weighted)
 #' @param background_noise Baseline electronic noise variance (default: 25)
-#' @return Data frame with unmixed abundances, RMSE, Relative_RMSE, and scatter parameters
+#' @param return_residuals Logical. If TRUE, returns a list containing the unmixed data and the raw residual matrix.
+#' @return Data frame with unmixed abundances, RMSE, Relative_RMSE, and scatter parameters. 
+#'         If return_residuals=TRUE, returns a list with [[data]] and [[residuals]].
 #' @export
-calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS", background_noise = 25) {
+calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS", 
+                          background_noise = 25, return_residuals = FALSE) {
     full_data <- flowCore::exprs(flow_frame)
     detectors <- colnames(M)
     
@@ -42,26 +45,17 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS", back
             A[i, ] <- nnls::nnls(Mt, Y[i, ])$x
         }
     } else if (method == "WLS") {
-        # Weighted Least Squares (Per-Cell): weights by inverse of cell intensity + background
-        # Assumes Poisson noise (variance ~ intensity). 
+        # Weighted Least Squares (Per-Cell)
         A <- matrix(0, nrow = n_cells, ncol = n_fluor)
-        
-        # Pre-calculate for fallback
         MMt_inv <- solve(M %*% Mt)
         
-        # Loop through cells (Performance bottleneck in R, but follows the standard)
         for (i in seq_len(n_cells)) {
-            # Variance = Signal + Background floor
-            # pmax ensures we don't have negative variance for noise-subtracted data
             weights_i <- 1 / (pmax(Y[i, ], 0) + background_noise)
             Wi <- diag(weights_i)
-            
-            # WLS for this specific cell
             MWMt_i <- M %*% Wi %*% Mt
             if (rcond(MWMt_i) > 1e-10) {
                 A[i, ] <- Y[i, , drop = FALSE] %*% Wi %*% Mt %*% solve(MWMt_i)
             } else {
-                # Fallback to OLS for this cell if weights make it singular
                 A[i, ] <- Y[i, , drop = FALSE] %*% Mt %*% MMt_inv
             }
         }
@@ -89,10 +83,11 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS", back
     if (!is.na(fsc_col)) out[["FSC-A"]] <- full_data[, fsc_col]
     if (!is.na(ssc_col)) out[["SSC-A"]] <- full_data[, ssc_col]
 
-    # Add file name if provided
-    if (!is.null(file_name)) {
-        out$File <- file_name
-    }
+    if (!is.null(file_name)) out$File <- file_name
 
-    out
+    if (return_residuals) {
+        return(list(data = out, residuals = R))
+    } else {
+        return(out)
+    }
 }
