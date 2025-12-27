@@ -45,14 +45,11 @@ calculate_ssm <- function(M, method = "OLS", background_noise = 100) {
         unmixed_sd <- sqrt(pmax(diag(unmixed_variance), 0))
         
         # SSM[i, j] = SD_j / sqrt(Signal_i)
-        # Since we used M[i, ] as the signal, the "total" signal is sum(M[i, ]) or just 1 (since M is normalized)
-        # Traditional SSM uses the square root of the target channel intensity.
-        # Here we normalize by the theoretical contribution.
         SSM[i, ] <- unmixed_sd
     }
     
-    # Set diagonal to NA or 0 as we only care about spillover spread
-    # diag(SSM) <- 0
+    # Set diagonal to 0 as we only care about spread into OTHER channels
+    diag(SSM) <- 0
     
     return(SSM)
 }
@@ -73,8 +70,8 @@ plot_ssm <- function(SSM, output_file = "spectral_spread_matrix.png", width = 20
         ggplot2::scale_fill_viridis_c(option = "magma", name = "Spread Factor") +
         ggplot2::geom_text(ggplot2::aes(label = round(Spread, 2)), color = "white", size = 2) +
         ggplot2::labs(title = "Spectral Spread Matrix",
-                      subtitle = "Quantifies how noise from marker Y spreads into marker X",
-                      x = "Receiving Marker (Noise)", y = "Spilling Marker (Source)") +
+                      subtitle = "Rows: Source of noise (spilling marker). Columns: Destination of noise (receiving marker).\nValues represent the standard deviation increase in column J caused by signal in row I.",
+                      x = "Receiving Marker (Noise Destination)", y = "Spilling Marker (Noise Source)") +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
     

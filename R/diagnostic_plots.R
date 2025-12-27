@@ -19,13 +19,17 @@ plot_detector_residuals <- function(res_list, top_n = 50, output_file = "detecto
     long$Cell <- seq_len(nrow(R_sub))
     long <- tidyr::pivot_longer(long, cols = -Cell, names_to = "Detector", values_to = "Residual")
     
-    # Calculate median absolute residual per detector
-    detector_order <- long |> 
-        dplyr::group_by(Detector) |> 
-        dplyr::summarize(Median_Abs_Res = median(abs(Residual))) |> 
-        dplyr::arrange(desc(Median_Abs_Res))
+    # Sort detectors numerically (FL00, FL01, ...)
+    det_names <- unique(long$Detector)
+    # Extract number if possible, else use string
+    nums <- as.numeric(gsub("[^0-9]", "", det_names))
+    if (any(!is.na(nums))) {
+        detectors_sorted <- det_names[order(nums)]
+    } else {
+        detectors_sorted <- sort(det_names)
+    }
     
-    long$Detector <- factor(long$Detector, levels = detector_order$Detector)
+    long$Detector <- factor(long$Detector, levels = detectors_sorted)
     
     p <- ggplot2::ggplot(long, ggplot2::aes(Detector, Residual)) +
         ggplot2::geom_boxplot(outlier.size = 0.5, fill = "steelblue", alpha = 0.7) +
@@ -75,10 +79,11 @@ calculate_nps <- function(data, markers = NULL) {
 
 #' Plot Negative Population Spread
 #' @export
-plot_nps <- function(nps_results, output_file = "nps_plot.png") {
+plot_nps <- function(nps_results, output_file = "nps_plot.png", width = 200) {
     p <- ggplot2::ggplot(nps_results, ggplot2::aes(Marker, NPS, fill = File)) +
         ggplot2::geom_bar(stat = "identity", position = "dodge") +
         ggplot2::labs(title = "Negative Population Spread (Unmixing Noise Floor)",
+                      subtitle = "High MAD indicates unmixing-induced spreading error.\nThis is often caused by spectral overlap with bright markers in the sample.",
                       y = "Spread (MAD)", x = "Unmixed Marker") +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))

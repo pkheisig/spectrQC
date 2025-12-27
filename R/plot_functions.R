@@ -48,12 +48,14 @@ plot_scatter_rmse <- function(data,
             limits = color_limits,
             oob = scales::squish
         ) +
+        # Add 5% reference line for RRMSE
+        {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "gray50", linetype = "dashed", alpha = 0.5)} +
         ggplot2::facet_wrap(~File, scales = "fixed", ncol = ncols) +
         ggplot2::labs(x = "FSC-A", y = "SSC-A") +
         ggplot2::theme_minimal(base_size = 8) +
         ggplot2::theme(
             panel.grid = ggplot2::element_blank(),
-            panel.background = ggplot2::element_rect(fill = "black"), # Dark background makes outliers pop
+            panel.background = ggplot2::element_rect(fill = "white", color = "gray90"),
             strip.text = ggplot2::element_text(size = 5),
             axis.text = ggplot2::element_text(size = 5),
             axis.title = ggplot2::element_text(size = 6),
