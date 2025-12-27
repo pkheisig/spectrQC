@@ -41,15 +41,15 @@ plot_scatter_rmse <- function(data,
     ncols <- ceiling(sqrt(n_files))
 
     p <- ggplot2::ggplot(plot_data, ggplot2::aes(`FSC-A`, `SSC-A`, color = .data[[metric]])) +
-        ggplot2::geom_point(size = 0.05, alpha = 0.4) + # Smaller and denser
+        ggplot2::geom_point(size = 0.02, alpha = 0.3) + # Even smaller and denser
         ggplot2::scale_color_gradientn(
-            colors = c("gray90", "gray70", "orange", "red", "black"),
+            colors = c("gray95", "gray80", "orange", "darkred", "black"),
             name = legend_name,
             limits = color_limits,
             oob = scales::squish
         ) +
         # Add 5% reference line for RRMSE
-        {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "gray50", linetype = "dashed", alpha = 0.5)} +
+        {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "gray70", linetype = "dashed", alpha = 0.5)} +
         ggplot2::facet_wrap(~File, scales = "fixed", ncol = ncols) +
         ggplot2::labs(x = "FSC-A", y = "SSC-A") +
         ggplot2::theme_minimal(base_size = 8) +
