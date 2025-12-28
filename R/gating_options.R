@@ -76,7 +76,7 @@ get_sorted_detectors <- function(pd) {
     # 2. Extract descriptions/labels
     # Use 'desc' if it looks like a filter name, otherwise fallback to 'name'
     desc <- as.character(fl_pd$desc)
-    names <- as.character(fl_pd$name)
+    names <- trimws(as.character(fl_pd$name))
     
     # Final labels for plotting
     labels <- ifelse(!is.na(desc) & desc != "" & desc != names, desc, names)
