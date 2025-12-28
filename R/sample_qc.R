@@ -2,18 +2,15 @@
 #' 
 #' Produces RRMSE scatter plots and individual file diagnostics for unmixed experimental samples.
 #' 
-#' @param unmixed_list List of unmixed data (from unmix_samples).
 #' @param M Reference matrix used.
-#' @param output_dir Folder to save QC plots.
 #' @param report_file Path to final PDF report.
+#' @param png_dir Folder to save individual plot images.
 #' @export
 generate_sample_qc <- function(unmixed_list, 
                               M, 
-                              output_dir = "samples_unmixed_qc",
                               report_file = "Experimental_Sample_Audit.pdf",
                               png_dir = "spectrQC_outputs/plots/sample_audit",
                               pd = NULL) {
-    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
     dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
     
     # Combined data

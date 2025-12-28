@@ -36,9 +36,9 @@ refine_scc_matrix <- function(M,
     # 2. Derive W (OLS by default for static matrix)
     W_refined <- derive_unmixing_matrix(M_refined, method = "OLS")
     
-    # 3. Save matrices
-    data.table::fwrite(as.data.table(M_refined, keep.rownames = "Marker"), file.path(output_dir, "refined_reference_matrix.csv"))
-    save_unmixing_matrix(W_refined, file.path(output_dir, "refined_unmixing_matrix.csv"))
+    # 3. Save matrices (root directory)
+    data.table::fwrite(as.data.table(M_refined, keep.rownames = "Marker"), "refined_reference_matrix.csv")
+    save_unmixing_matrix(W_refined, "refined_unmixing_matrix.csv")
     
     # 4. Save comparison plots (without PDF report)
     message("  - Plotting initial vs refined spectra...")
@@ -46,12 +46,21 @@ refine_scc_matrix <- function(M,
     p2 <- plot_spectra(M_refined, pd = pd, output_file = file.path(png_dir, "02_spectra_refined.png")) + ggplot2::ggtitle("Refined Spectra (Outliers Removed)")
     
     # 5. Unmix SCCs with refined W and save
-    message("  - Saving unmixed SCC files...")
+    message("  - Saving unmixed SCC files (FCS format)...")
     
     for (f in fcs_files) {
+        sn <- tools::file_path_sans_ext(basename(f))
         ff <- flowCore::read.FCS(f)
         res <- calc_residuals(ff, M_refined, method = "WLS")
-        data.table::fwrite(res, file.path(output_dir, paste0(tools::file_path_sans_ext(basename(f)), "_unmixed.csv")))
+        
+        # Convert to matrix for FCS - standard subsetting for data.frame
+        markers_to_keep <- intersect(colnames(res), rownames(M_refined))
+        scatter_cols <- grep("FSC|SSC", colnames(res), value = TRUE)
+        unmixed_exprs <- as.matrix(res[, c(markers_to_keep, scatter_cols)])
+        
+        new_ff <- flowCore::flowFrame(unmixed_exprs)
+        new_ff@description <- ff@description
+        flowCore::write.FCS(new_ff, file.path(output_dir, paste0(sn, "_unmixed.fcs")))
     }
     
     return(list(M = M_refined, W = W_refined))

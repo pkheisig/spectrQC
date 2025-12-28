@@ -173,7 +173,7 @@ extract_af_signatures <- function(af_dir, detector_names) {
         ssc <- pd$name[grepl("^SSC", pd$name) & grepl("-A$", pd$name)][1]
         
         # 20-80% quantile gate on FSC/SSC to isolate main population
-        idx <- which(raw_data[, fsc] > quantile(raw_data[, fsc], 0.2) & 
+        idx <- which(raw_data[, fsc] > quantile(raw_data[, fsc], 0.2) &
                      raw_data[, fsc] < quantile(raw_data[, fsc], 0.8) &
                      raw_data[, ssc] > quantile(raw_data[, ssc], 0.2) &
                      raw_data[, ssc] < quantile(raw_data[, ssc], 0.8))
@@ -188,4 +188,3 @@ extract_af_signatures <- function(af_dir, detector_names) {
     }
     return(do.call(rbind, spectra))
 }
-

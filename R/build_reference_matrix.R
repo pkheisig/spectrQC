@@ -2,6 +2,8 @@ build_reference_matrix <- function(
   input_folder = "scc",
   output_folder = "gating_and_spectrum_plots",
   control_df = NULL,
+  include_multi_af = FALSE,
+  af_dir = "af",
   default_sample_type = "beads",
   gating_opts = NULL,
   histogram_pct_beads = 0.98,
@@ -109,8 +111,17 @@ build_reference_matrix <- function(
     }
 
     results_list <- list()
-    af_data_raw <- NULL
-    af_fn <- NULL
+    
+    # 1.1 Add files from AF directory if requested
+    fcs_files_all <- fcs_files
+    if (include_multi_af && dir.exists(af_dir)) {
+        af_files <- list.files(af_dir, pattern = "\\.fcs$", full.names = TRUE)
+        message("Found ", length(af_files), " extra AF files in '", af_dir, "'")
+        # Pre-pend AF files so they are processed
+        fcs_files_all <- c(af_files, fcs_files)
+    }
+
+    af_data_raw <- NULL; af_fn <- NULL
     if (!is.null(control_df)) {
         af_rows <- control_df[fluorophore == "AF"]
         if (nrow(af_rows) > 0) af_fn <- tools::file_path_sans_ext(basename(af_rows$filename[1]))
@@ -127,13 +138,30 @@ build_reference_matrix <- function(
         }
     }
 
-    for (fcs_file in fcs_files) {
+    for (fcs_file in fcs_files_all) {
         sn_ext <- basename(fcs_file)
         sn <- tools::file_path_sans_ext(sn_ext)
+        
+        # Determine if this is an extra AF file
+        is_extra_af <- FALSE
+        if (include_multi_af && grepl(normalizePath(af_dir), normalizePath(fcs_file), fixed = TRUE)) {
+            is_extra_af <- TRUE
+        }
+
         row_info <- if (!is.null(control_df)) control_df[filename == sn_ext | filename == sn] else data.table::data.table()
         sample_info <- get_sample_type(sn, sample_patterns, default_sample_type)
+        
         fluor_name <- if (nrow(row_info) > 0 && !is.na(row_info$fluorophore[1])) row_info$fluorophore[1] else sample_info$pattern
-        if (fluor_name == "AF") next
+        
+        if (is_extra_af) {
+            # Assign a unique AF name if not in control_df
+            if (nrow(row_info) == 0) {
+                fluor_name <- paste0("AF_", sn)
+            }
+            sample_info$type <- "cells" # Force cells for AF folder
+        }
+
+        if (fluor_name == "AF" && !is_extra_af) next
 
         message("Processing SCC: ", fluor_name, " (", sn, ")")
         ff <- flowCore::read.FCS(fcs_file, transformation = FALSE, truncate_max_range = FALSE)

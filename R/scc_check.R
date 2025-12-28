@@ -6,22 +6,27 @@
 #' @param scc_dir Directory containing SCC FCS files.
 #' @param output_dir Directory to save plots.
 #' @param control_file Path to manual control mapping CSV.
+#' @param include_multi_af Logical. If TRUE, looks for extra AF signatures in af_dir.
+#' @param af_dir Directory containing extra AF files.
 #' @param gating_opts Options for gating (beads/cells).
 #' @return Initial reference matrix M.
 #' @export
 inspect_scc_spectra <- function(scc_dir = "scc", 
                                output_dir = "gating_and_spectrum_plots",
                                control_file = "fcs_control_file.csv",
+                               include_multi_af = FALSE,
+                               af_dir = "af",
                                gating_opts = NULL) {
     if (!file.exists(control_file)) stop("Control file not found: ", control_file)
     control_df <- data.table::fread(control_file)
-    custom_map <- stats::setNames(control_df$fluorophore, tools::file_path_sans_ext(control_df$filename))
     
-    # We use the core build_reference_matrix logic but ensure it's exported correctly
+    # We use the core build_reference_matrix logic
     M <- build_reference_matrix(
         input_folder = scc_dir,
         output_folder = output_dir,
         control_df = control_df,
+        include_multi_af = include_multi_af,
+        af_dir = af_dir,
         gating_opts = gating_opts
     )
     

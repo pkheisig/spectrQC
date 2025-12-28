@@ -13,6 +13,11 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
     data <- res_list$data
     residuals <- res_list$residuals
     
+    if (is.null(residuals) || nrow(residuals) == 0) {
+        warning("No residuals provided to plot_detector_residuals. Skipping plot.")
+        return(NULL)
+    }
+
     # Identify high-error cells
     idx <- order(data$Relative_RMSE, decreasing = TRUE)[1:min(top_n, nrow(data))]
     R_sub <- residuals[idx, , drop = FALSE]
