@@ -5,6 +5,7 @@
 # Output plots and reports
 *.png
 *.pdf
+!man/figures/*.png
 
 # R specific
 .Rproj.user
