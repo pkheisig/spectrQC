@@ -1,0 +1,22 @@
+# Data files
+*.fcs
+*.csv
+
+# Output plots and reports
+*.png
+*.pdf
+
+# R specific
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Directory-based ignores
+gating_and_spectrum_plots/
+samples_unmixed/
+samples_unmixed_qc/
+scc_unmixed/
+spectrQC_outputs/
+samples/
+scc/
