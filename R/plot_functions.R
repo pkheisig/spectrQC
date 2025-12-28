@@ -175,10 +175,24 @@ plot_spectra <- function(ref_matrix,
         det_info <- get_sorted_detectors(pd)
         # Filter ref_matrix to match
         common <- intersect(det_info$names, detectors)
-        ref_matrix <- ref_matrix[, common, drop = FALSE]
-        detectors <- common
-        # Get labels only for common
-        labels <- det_info$labels[match(common, det_info$names)]
+
+        if (length(common) == 0) {
+            warning("No matching detectors found between reference matrix and provided metadata. Ignoring metadata.")
+            message("Ref Matrix cols (first 5): ", paste(head(detectors, 5), collapse=", "))
+            message("Metadata names (first 5): ", paste(head(det_info$names, 5), collapse=", "))
+
+            # Fallback to numerical sort
+            nums <- as.numeric(gsub("[^0-9]", "", detectors))
+            ord <- order(nums)
+            ref_matrix <- ref_matrix[, ord, drop = FALSE]
+            detectors <- colnames(ref_matrix)
+            labels <- detectors
+        } else {
+            ref_matrix <- ref_matrix[, common, drop = FALSE]
+            detectors <- common
+            # Get labels only for common
+            labels <- det_info$labels[match(common, det_info$names)]
+        }
     } else {
         # Fallback to numerical sort
         nums <- as.numeric(gsub("[^0-9]", "", detectors))
