@@ -52,3 +52,65 @@ get_fluorophore_patterns <- function() {
         )
     )
 }
+
+#' Get Sorted Detectors by Laser and Wavelength
+#' 
+#' @param pd pData from flowFrame parameters
+#' @return A list with [[names]] (FL...) and [[labels]] (405nm - 420/10) sorted by laser.
+#' @export
+get_sorted_detectors <- function(pd) {
+    # 1. Identify spectral detectors
+    # Common patterns: FL[0-9]+-A, [A-Z][0-9]+-A, etc.
+    # Exclude FSC, SSC, Time
+    exclude_patterns <- "^FSC|^SSC|^Time|^Event|^ID"
+    matches <- grep(exclude_patterns, pd$name, ignore.case = TRUE, invert = TRUE)
+    
+    # Further filter for Area channels if they exist, otherwise use all
+    area_matches <- grep("-A$", pd$name[matches])
+    if (length(area_matches) > 0) {
+        matches <- matches[area_matches]
+    }
+    
+    fl_pd <- pd[matches, ]
+    
+    # 2. Extract descriptions/labels
+    # Use 'desc' if it looks like a filter name, otherwise fallback to 'name'
+    desc <- as.character(fl_pd$desc)
+    names <- as.character(fl_pd$name)
+    
+    # Final labels for plotting
+    labels <- ifelse(!is.na(desc) & desc != "" & desc != names, desc, names)
+    
+    # 3. Parse laser and wavelength for sorting
+    # Try to find laser nm (e.g., "405nm" or "405-")
+    laser_nm <- as.integer(gsub(".*?([0-9]{3})\\s*nm.*", "\\1", labels))
+    # If failed, try name (e.g., V1, B2)
+    if (all(is.na(laser_nm))) {
+        laser_code <- substr(names, 1, 1)
+        laser_nm <- ifelse(laser_code == "U", 355,
+                    ifelse(laser_code == "V", 405,
+                    ifelse(laser_code == "B", 488,
+                    ifelse(laser_code == "Y" | laser_code == "G", 561,
+                    ifelse(laser_code == "R", 640, 999)))))
+    }
+    
+    # Laser order: UV (~355), V (~405), B (~488), YG (~561), R (~640)
+    laser_priority <- ifelse(laser_nm < 360, 1, # UV
+                      ifelse(laser_nm < 420, 2, # V
+                      ifelse(laser_nm < 500, 3, # B
+                      ifelse(laser_nm < 600, 4, # YG
+                      5)))) # R
+    
+    # Wavelength: look for numbers after the laser name
+    wavelength <- as.integer(gsub(".*?([0-9]{3}).*", "\\1", sub("^[0-9]{3}nm", "", labels)))
+    if (all(is.na(wavelength))) wavelength <- seq_along(names) # Fallback to index
+    
+    # 4. Sort
+    ord <- order(laser_priority, wavelength, na.last = TRUE)
+    
+    return(list(
+        names = names[ord],
+        labels = labels[ord],
+        laser_nm = laser_nm[ord]
+    ))
+}

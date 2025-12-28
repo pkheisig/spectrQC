@@ -1,12 +1,14 @@
-# specRQC: Spectral Flow Cytometry Quality Control
+# spectrQC: Full Spectrum Flow Cytometry Quality Control
 
-`specRQC` is an R package designed to validate spectral unmixing accuracy by calculating and visualizing unmixing residuals. It provides an automated pipeline to isolate single-stained control spectra and evaluate experimental data using photon-calibrated unmixing models.
+`spectrQC` is an R package designed to validate spectral unmixing accuracy by calculating and visualizing unmixing residuals. It provides a modular pipeline to isolate single-stained control spectra, refine them using spectral QC metrics, and unmix experimental data using industry-standard per-cell WLS models.
 
 ## Key Features
 - **Automated Gating**: Isolate positive populations from beads or cells using Gaussian Mixture Models (GMM).
-- **Per-Cell WLS Unmixing**: Perform unmixing using the standard photon-counting variance model ($\sigma^2 = \text{Signal} + \text{Background}$).
-- **Relative RMSE (RRMSE)**: A normalized error metric expressed as a percentage of total cell intensity.
-- **AutoSpectral Integration**: Seamlessly generate control files and run unmixing through the `AutoSpectral` package.
+- **Internal Negative Subtraction**: Automatically isolate fluorophore signatures by subtracting internal background populations.
+- **Spectral Refinement**: Tighten single-color control signatures by filtering out high-RRMSE events (debris/outliers).
+- **Per-Cell WLS Unmixing**: High-accuracy unmixing using the photon-counting variance model ($\sigma^2 = \text{Signal} + \text{Background}$). 
+- **Modular Audit Reports**: Dedicated PDF audits for both single-color controls and experimental samples.
+- **Visual Diagnostics**: Individual PNG exports for every stage of the QC process.
 
 ---
 
@@ -14,103 +16,73 @@
 
 ```r
 # Install from GitHub
-devtools::install_github("pkheisig/specRQC")
+devtools::install_github("pkheisig/spectrQC")
 ```
 
 ---
 
 ## The Workflow
 
-The `specRQC` workflow is divided into three stages to allow for manual inspection of fluorophore mappings.
+The `spectrQC` workflow is divided into four distinct phases.
 
-### 1. Setup Control File
-Scans your single-stained control folder and guesses the fluorophore names and control types.
+### 1. Check Single Color Controls
+Performs initial gating, extracts raw spectra, and generates a dedicated SCC audit report.
 
 ```r
-library(specRQC)
+library(spectrQC)
 
-# Generate a draft control file
-create_autospectral_control_file(input_folder = "scc", output_file = "fcs_control_file.csv")
+# Perform initial gating and signature extraction
+M_initial <- inspect_scc_spectra(scc_dir = "scc", 
+                                output_dir = "gating_and_spectrum_plots", 
+                                control_file = "fcs_control_file.csv")
 
-# NOTE: You can now open 'fcs_control_file.csv' in Excel/Text editor, 
-# correct any fluorophore names, and save it.
+# Generate the SCC-only QC report (saved as PDF and individual PNGs)
+generate_scc_report(M_initial, scc_dir = "scc", output_file = "SCC_Initial_Audit.pdf")
 ```
 
-### 2. Build Reference Matrix
-Uses the control file to gate the positive populations and extract the normalized spectral signatures.
+### 2. Refine SCCs (Cleaning)
+Uses an RRMSE cutoff to remove debris and "tighten" the reference signatures. Produces the final Reference and Unmixing matrices.
 
 ```r
-# Load the mapping
-control_df <- data.table::fread("fcs_control_file.csv")
-custom_map <- setNames(control_df$fluorophore, tools::file_path_sans_ext(control_df$filename))
+# Clean SCCs, produce W matrix, and generate Before/After comparison
+refined <- refine_scc_matrix(M_initial, 
+                            scc_dir = "scc", 
+                            rrmse_threshold = 0.05, 
+                            output_dir = "scc_unmixed")
 
-# Build matrix M (Markers x Detectors)
-M <- build_reference_matrix(
-  input_folder = "scc",
-  output_folder = "autogate_plots",
-  custom_fluorophores = custom_map
-)
-
-# Visualize spectra
-plot_spectra(M)
+M_final <- refined$M
+W_final <- refined$W
 ```
 
-### 3. Calculate Residuals & QC
-Applies per-cell Weighted Least Squares (WLS) unmixing and calculates the Relative RMSE.
+### 3. Unmix Experimental Samples
+Applies the refined signatures to your experimental data.
 
 ```r
-library(flowCore)
-ff <- read.FCS("raw_data.fcs")
-
-# Calculate unmixed abundances and error metrics
-results <- calc_residuals(ff, M, method = "WLS", background_noise = 100)
-
-# Generate QC plots
-plot_scatter_rmse(results, metric = "Relative_RMSE", output_file = "qc_scatter.png")
+# Unmix all files in 'samples/' folder using WLS
+unmixed_list <- unmix_samples(sample_dir = "samples", 
+                             M = M_final, 
+                             method = "WLS", 
+                             output_dir = "samples_unmixed")
 ```
 
----
-
-## Understanding RRMSE
-
-**Relative RMSE (RRMSE)** is the primary quality metric in `specRQC`. It represents the "Spectral Fit Error" as a percentage of the total light collected from the cell.
-
-$$ 	ext{RRMSE} = \frac{\sqrt{\text{mean}(\text{Residuals}^2)}}{\text{Total Intensity}} \times 100 $$
-
-### Interpretation Guide:
-- **< 1% (Excellent)**: The unmixing model perfectly explains the data. Standard for lymphocytes in well-calibrated panels.
-- **1% – 3% (Good)**: High unmixing accuracy. Slight deviations may occur in very bright channels or due to autofluorescence minor mismatches.
-- **3% – 10% (Warning)**: Significant residual error. This often indicates:
-    - **Spectral Bottlenecks**: Two markers are too similar to resolve perfectly.
-    - **Spillover Issues**: A marker is present that isn't in your reference matrix.
-    - **Artifacts**: Debris, doublets, or extreme detector saturation.
-- **> 10% (Poor)**: The unmixing for these cells is unreliable. These events should likely be gated out as debris or artifacts.
-
----
-
-## Deriving a Static Unmixing Matrix
-
-If you need a static unmixing matrix for use in other software (e.g., FlowJo), you can derive it from your reference matrix:
+### 4. QC Experimental Samples
+Generates the final comprehensive audit for the unmixed samples.
 
 ```r
-# Get the 10x51 unmixing matrix (W)
-W <- derive_unmixing_matrix(M, method = "OLS")
-
-# Save to CSV
-save_unmixing_matrix(W, "unmixing_matrix.csv")
-
-# Manual unmixing math:
-# Unmixed_Data = Raw_Data %*% t(W)
+# Generate the professional PDF audit for experimental data
+generate_sample_qc(unmixed_list, M = M_final, output_dir = "samples_unmixed_qc", report_file = "Experimental_Sample_Audit.pdf")
 ```
 
 ---
 
-## Dependencies
-`flowCore`, `ggplot2`, `dplyr`, `tidyr`, `data.table`, `mclust`, `sp`, `scales`, `nnls`.
-`AutoSpectral` (Suggested for advanced unmixing).
+## Output Folders
+`spectrQC` keeps your main directory clean by organizing outputs:
+- `gating_and_spectrum_plots/`: Visual confirmation of initial SCC gating.
+- `scc_unmixed/`: Refined signatures and unmixed control data.
+- `samples_unmixed/`: Your final unmixed experimental data (CSV).
+- `samples_unmixed_qc/`: High-resolution RRMSE scatters and residual diagnostics.
+- `spectrQC_outputs/plots/`: Individual PNG versions of all report pages.
 
 ---
 **Author**: Paul Heisig  
 **Email**: p.k.s.heisig@amsterdamumc.nl
-
-```

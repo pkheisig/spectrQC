@@ -1,11 +1,9 @@
 "filename","fluorophore","marker","channel","control.type","universal.negative","large.gate","is.viability"
-"7-AAD Run 1 20251219194947.fcs","7-AAD","","","cells",FALSE,FALSE,TRUE
-"Alexa 594 Run 1 20251219194041.fcs","Alexa 594","","","beads",FALSE,FALSE,FALSE
-"Alexa 647 Run 1 20251219194322.fcs","Alexa 647","","","beads",FALSE,FALSE,FALSE
-"eFluor 506 Fixable Viability Run 1 20251219194859.fcs","eFluor 506","","","cells",FALSE,FALSE,TRUE
-"eFluor 780 Fixable Viability Run 1 20251219194755.fcs","eFluor 780","","","cells",FALSE,FALSE,TRUE
-"FITC Run 1 20251219194411.fcs","FITC","","","beads",FALSE,FALSE,FALSE
-"PE Run 1 20251219194145.fcs","PE","","","beads",FALSE,FALSE,FALSE
-"PE-Cy7 Run 1 20251219194459.fcs","PE-Cy7","","","beads",FALSE,FALSE,FALSE
-"Unstained 1 Run 1 20251219195036.fcs","AF","","","cells",FALSE,FALSE,FALSE
-"V450 Run 1 20251219194234.fcs","V450","","","beads",FALSE,FALSE,FALSE
+"FITC Run 1 20251204184317.fcs","FITC","MYC","FL37-A","beads","","",""
+"PerCP-Cy5.5_aligned.fcs","PerCP-Cy5.5","HA","FL41-A","beads","","",""
+"PE Run 1 20251204183325.fcs","PE","cyclinD1","FL31-A","beads","","",""
+"PE-Cy7 Run 1 20251204184214.fcs","PE-Cy7","beta-catenin","FL28-A","beads","","",""
+"eFluor 780 Fixable Viability_aligned.fcs","eFluor 780","Live","FL44-A","cells","","","TRUE"
+"Alexa 594 Run 1 20251204184006.fcs","Alexa Fluor 594","GSK3B","FL33-A","beads","","",""
+"Alexa 647 Run 1 20251204184406_aligned.fcs","Alexa Fluor 647","MCL1","FL46-A","beads","","",""
+"US_UT_0 Run 1 20251211152908_aligned.fcs","AF","AF","","cells","","",""

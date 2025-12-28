@@ -1,8 +1,8 @@
 plot_scatter_rmse <- function(data,
                               metric = "RMSE_Score",
                               output_file = "scatter_rmse.png",
-                              width = 200,
-                              height = 150,
+                              width = 180, # 1.5x larger default
+                              height = 180, 
                               unit = "mm",
                               dpi = 600,
                               max_cells_per_file = 2000,
@@ -29,6 +29,7 @@ plot_scatter_rmse <- function(data,
     }
 
     # Trim outliers for the plot coordinates
+    # IMPORTANT: we arrange BY metric so high values are plotted LAST (on top)
     plot_data <- plot_data |>
         dplyr::filter(
             `FSC-A` >= quantile(`FSC-A`, 0.005, na.rm=TRUE) & `FSC-A` <= quantile(`FSC-A`, 0.995, na.rm=TRUE),
@@ -41,21 +42,20 @@ plot_scatter_rmse <- function(data,
     ncols <- ceiling(sqrt(n_files))
 
     p <- ggplot2::ggplot(plot_data, ggplot2::aes(`FSC-A`, `SSC-A`, color = .data[[metric]])) +
-        ggplot2::geom_point(size = 0.02, alpha = 0.3) + # Even smaller and denser
+        ggplot2::geom_point(size = 0.1, alpha = 0.8) + # Larger and more opaque
         ggplot2::scale_color_gradientn(
-            colors = c("gray95", "gray80", "orange", "darkred", "black"),
+            colors = c("gray98", "gray90", "orange", "red", "black"),
             name = legend_name,
             limits = color_limits,
             oob = scales::squish
         ) +
-        # Add 5% reference line for RRMSE
-        {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "gray70", linetype = "dashed", alpha = 0.5)} +
         ggplot2::facet_wrap(~File, scales = "fixed", ncol = ncols) +
         ggplot2::labs(x = "FSC-A", y = "SSC-A") +
         ggplot2::theme_minimal(base_size = 8) +
         ggplot2::theme(
+            aspect.ratio = 1, # Force square facets
             panel.grid = ggplot2::element_blank(),
-            panel.background = ggplot2::element_rect(fill = "white", color = "gray90"),
+            panel.background = ggplot2::element_rect(fill = "white", color = "gray95"),
             strip.text = ggplot2::element_text(size = 5),
             axis.text = ggplot2::element_text(size = 5),
             axis.title = ggplot2::element_text(size = 6),
@@ -130,12 +130,13 @@ plot_marker_correlations <- function(data,
 
     p <- ggplot2::ggplot(long, ggplot2::aes(Intensity, .data[[metric]])) +
         ggplot2::geom_point(size = 0.1, alpha = 0.1) +
-        {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "gray50", linetype = "dashed", alpha = 0.5)} +
+        {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "darkred", linetype = "dashed", linewidth = 0.8, alpha = 0.7)} +
         {if(show_smooth) ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"))} +
         ggplot2::facet_wrap(~Marker, scales = "free_x", ncol = ceiling(length(markers) / 3)) +
         ggplot2::labs(x = "Unmixed Abundance", y = y_name) +
         ggplot2::theme_minimal(base_size = 8) +
         ggplot2::theme(
+            aspect.ratio = 1, # Make square
             panel.grid.minor = ggplot2::element_blank(),
             strip.text = ggplot2::element_text(size = 5),
             axis.text = ggplot2::element_text(size = 5),
@@ -153,7 +154,14 @@ plot_marker_correlations <- function(data,
 }
 
 
+#' Plot Spectral Overlays
+#' 
+#' @param ref_matrix Reference matrix (Markers x Detectors)
+#' @param pd Optional pData for descriptive labels
+#' @param output_file Path to save plot
+#' @export
 plot_spectra <- function(ref_matrix,
+                         pd = NULL,
                          output_file = "spectra_overlay.png",
                          width = 250,
                          height = 100,
@@ -161,27 +169,37 @@ plot_spectra <- function(ref_matrix,
                          dpi = 600,
                          theme_custom = NULL) {
     detectors <- colnames(ref_matrix)
-    fl_pattern <- "^(UV|V|B|YG|R|DUV|IR|FL)[0-9]+"
-    keep <- grepl(fl_pattern, detectors)
-    detectors <- detectors[keep]
-    ref_matrix <- ref_matrix[, detectors, drop = FALSE]
-    intensities <- as.vector(ref_matrix)
+    
+    # 1. Get Sorted Detectors and Labels
+    if (!is.null(pd)) {
+        det_info <- get_sorted_detectors(pd)
+        # Filter ref_matrix to match
+        common <- intersect(det_info$names, detectors)
+        ref_matrix <- ref_matrix[, common, drop = FALSE]
+        detectors <- common
+        # Get labels only for common
+        labels <- det_info$labels[match(common, det_info$names)]
+    } else {
+        # Fallback to numerical sort
+        nums <- as.numeric(gsub("[^0-9]", "", detectors))
+        ord <- order(nums)
+        ref_matrix <- ref_matrix[, ord, drop = FALSE]
+        detectors <- colnames(ref_matrix)
+        labels <- detectors
+    }
 
     long <- data.frame(
         Fluorophore = rep(rownames(ref_matrix), ncol(ref_matrix)),
         Detector = rep(detectors, each = nrow(ref_matrix)),
-        Intensity = intensities
+        Intensity = as.vector(ref_matrix)
     )
-
-    long$Detector <- factor(long$Detector, levels = detectors)
+    
+    long$Detector <- factor(long$Detector, levels = detectors, labels = labels)
 
     p <- ggplot2::ggplot(long, ggplot2::aes(Detector, Intensity, color = Fluorophore, group = Fluorophore)) +
         ggplot2::geom_line(linewidth = 0.7) +
-        (if (is.null(theme_custom)) {
-            ggplot2::theme(axis.text.x = ggplot2::element_text(size = 5, angle = 90, hjust = 1, vjust = 0.5))
-        } else {
-            theme_custom
-        }) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(axis.text.x = ggplot2::element_text(size = 5, angle = 90, hjust = 1, vjust = 0.5)) +
         ggplot2::labs(x = "Detector", y = "Normalized Intensity")
 
     if (!is.null(output_file)) {

@@ -1,5 +1,5 @@
-Package: specRQC
-Title: Spectral Flow Cytometry QC
+Package: spectrQC
+Title: Full Spectrum Flow Cytometry QC & Unmixing
 Version: 0.1.0
 Authors@R: person("Paul Heisig", email = "p.k.s.heisig@amsterdamumc.nl", role = c("aut", "cre"))
 Description: Validate spectral flow cytometry data by calculating unmixing residuals.

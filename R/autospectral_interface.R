@@ -32,14 +32,15 @@ create_autospectral_control_file <- function(input_folder = "scc",
         marker = "",
         channel = "",
         control.type = "beads",
-        universal.negative = FALSE,
-        large.gate = FALSE,
-        is.viability = FALSE,
+        universal.negative = "",
+        large.gate = "",
+        is.viability = "",
         stringsAsFactors = FALSE
     )
     
     for (i in seq_len(nrow(df))) {
-        fn <- df$filename[i] 
+        fn <- df$filename[i]
+        full_path <- file.path(input_folder, fn)
         
         # Custom mapping first
         if (!is.null(custom_fluorophores) && fn %in% names(custom_fluorophores)) {
@@ -53,6 +54,25 @@ create_autospectral_control_file <- function(input_folder = "scc",
                 }
             }
         }
+        
+        # Identify peak channel
+        tryCatch({
+            ff <- flowCore::read.FCS(full_path, transformation = FALSE, truncate_max_range = FALSE)
+            # Find detectors (FL...)
+            pd <- flowCore::pData(flowCore::parameters(ff))
+            fl_idx <- grep("^FL[0-9]+-A$", pd$name)
+            if (length(fl_idx) == 0) fl_idx <- grep("^FL[0-9]+-Comp$", pd$name)
+            
+            if (length(fl_idx) > 0) {
+                fl_channels <- pd$name[fl_idx]
+                # Calculate medians to find peak
+                medians <- apply(flowCore::exprs(ff)[, fl_channels, drop = FALSE], 2, median)
+                peak_idx <- which.max(medians)
+                df$channel[i] <- names(medians)[peak_idx]
+            }
+        }, error = function(e) {
+            message("  Warning: Could not read FCS header for ", fn)
+        })
         
         # Check for Unstained
         if (grepl("Unstained|US_UT", fn, ignore.case = TRUE)) {
@@ -69,7 +89,7 @@ create_autospectral_control_file <- function(input_folder = "scc",
         
         # Check for viability
         if (grepl("Viability|Live.Dead|7-AAD|DAPI|FVD|eFluor 506|eFluor 780", fn, ignore.case = TRUE)) {
-            df$is.viability[i] <- TRUE
+            df$is.viability[i] <- "TRUE"
             df$control.type[i] <- "cells"
         }
     }

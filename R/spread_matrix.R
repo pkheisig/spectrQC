@@ -68,7 +68,11 @@ plot_ssm <- function(SSM, output_file = "spectral_spread_matrix.png", width = 20
     p <- ggplot2::ggplot(long, ggplot2::aes(Receiving_Marker, Spilling_Marker, fill = Spread)) +
         ggplot2::geom_tile() +
         ggplot2::scale_fill_viridis_c(option = "magma", name = "Spread Factor") +
-        ggplot2::geom_text(ggplot2::aes(label = round(Spread, 2)), color = "white", size = 2) +
+        # Dynamic text color for contrast: black on light (yellow/orange), white on dark
+        ggplot2::geom_text(ggplot2::aes(label = round(Spread, 2), 
+                                       color = Spread > quantile(Spread, 0.7, na.rm=TRUE)), 
+                           size = 4, show.legend = FALSE) +
+        ggplot2::scale_color_manual(values = c("TRUE" = "black", "FALSE" = "white")) +
         ggplot2::labs(title = "Spectral Spread Matrix",
                       subtitle = "Rows: Source of noise (spilling marker). Columns: Destination of noise (receiving marker).\nValues represent the standard deviation increase in column J caused by signal in row I.",
                       x = "Receiving Marker (Noise Destination)", y = "Spilling Marker (Noise Source)") +

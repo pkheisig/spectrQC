@@ -1,17 +1,20 @@
 #' Plot Detector-Level Residuals
 #' 
 #' Identifies which detectors contribute most to the unmixing error for high-RRMSE cells.
+#' Overlays the reference signatures to help identify the source of the mismatch.
 #' 
 #' @param res_list List returned by calc_residuals with return_residuals=TRUE
+#' @param M Reference matrix
 #' @param top_n Number of top high-error cells to analyze
 #' @param output_file Path to save the plot
+#' @param pd Optional pData for descriptive labels
 #' @export
-plot_detector_residuals <- function(res_list, top_n = 50, output_file = "detector_residuals.png") {
+plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "detector_residuals.png", width = 250, height = 120, pd = NULL) {
     data <- res_list$data
     residuals <- res_list$residuals
     
     # Identify high-error cells
-    idx <- order(data$Relative_RMSE, decreasing = TRUE)[1:top_n]
+    idx <- order(data$Relative_RMSE, decreasing = TRUE)[1:min(top_n, nrow(data))]
     R_sub <- residuals[idx, , drop = FALSE]
     
     # Convert to long format for plotting
@@ -19,24 +22,41 @@ plot_detector_residuals <- function(res_list, top_n = 50, output_file = "detecto
     long$Cell <- seq_len(nrow(R_sub))
     long <- tidyr::pivot_longer(long, cols = -Cell, names_to = "Detector", values_to = "Residual")
     
-    # Sort detectors numerically (FL00, FL01, ...)
-    det_names <- unique(long$Detector)
-    # Extract number if possible, else use string
-    nums <- as.numeric(gsub("[^0-9]", "", det_names))
-    if (any(!is.na(nums))) {
-        detectors_sorted <- det_names[order(nums)]
+    # Sort and label detectors
+    det_names <- colnames(M)
+    if (!is.null(pd)) {
+        det_info <- get_sorted_detectors(pd)
+        common <- intersect(det_info$names, det_names)
+        levels_sorted <- common
+        labels_sorted <- det_info$labels[match(common, det_info$names)]
     } else {
-        detectors_sorted <- sort(det_names)
+        nums <- as.numeric(gsub("[^0-9]", "", det_names))
+        levels_sorted <- det_names[order(nums)]
+        labels_sorted <- levels_sorted
     }
     
-    long$Detector <- factor(long$Detector, levels = detectors_sorted)
+    long$Detector <- factor(long$Detector, levels = levels_sorted, labels = labels_sorted)
     
-    p <- ggplot2::ggplot(long, ggplot2::aes(Detector, Residual)) +
-        ggplot2::geom_boxplot(outlier.size = 0.5, fill = "steelblue", alpha = 0.7) +
-        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    # Prepare M for overlay
+    # Scale M to the max absolute residual for visual comparison
+    max_res <- max(abs(long$Residual), na.rm = TRUE)
+    M_overlay <- as.data.frame(M[, levels_sorted, drop = FALSE])
+    M_overlay$Fluorophore <- rownames(M)
+    M_long <- tidyr::pivot_longer(M_overlay, cols = -Fluorophore, names_to = "Detector", values_to = "Signature")
+    M_long$Signature <- M_long$Signature * max_res
+    M_long$Detector <- factor(M_long$Detector, levels = levels_sorted, labels = labels_sorted)
+    
+    p <- ggplot2::ggplot() +
+        # Spectra overlay (background)
+        ggplot2::geom_line(data = M_long, ggplot2::aes(Detector, Signature, group = Fluorophore, color = Fluorophore), 
+                           alpha = 0.5, linewidth = 0.5) +
+        # Residual boxplots (foreground)
+        ggplot2::geom_boxplot(data = long, ggplot2::aes(Detector, Residual), 
+                              outlier.size = 0.5, fill = "steelblue", alpha = 0.6) +
+        ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
         ggplot2::labs(title = paste("Residual Contributions for Top", top_n, "High-Error Cells"),
-                      subtitle = "Positive residuals = under-explained signal; Negative = over-explained",
-                      x = "Detector", y = "Residual Value") +
+                      subtitle = "Background: Reference Spectra scaled to max residual. Foreground: Residual distribution.",
+                      x = "Detector", y = "Residual Value / Scaled Signature") +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, size = 6))
     
