@@ -1,56 +1,97 @@
-library(devtools)
-load_all()
-library(data.table)
 library(flowCore)
+library(ggplot2)
+library(devtools)
+library(data.table)
 
-# --- spectrQC: New Modular Workflow ---
+# Load the package
+message("Loading package...")
+devtools::load_all()
 
-# Setup folders
-scc_dir <- "scc"       # User's SCC folder
-sample_dir <- "samples" # User's experimental folder
-control_file <- "fcs_control_file.csv" # User's manual mapping
+# --- STAGE 1: Create Control File ---
+# This allows the user to inspect and edit fluorophore mappings
+if (!file.exists("fcs_control_file.csv")) {
+    message("Stage 1: Creating AutoSpectral control file...")
+    control_df <- create_autospectral_control_file(
+        input_folder = "scc",
+        output_file = "fcs_control_file.csv"
+    )
+    # The user can now stop here and edit the CSV if needed.
+    # For this autonomous run, we proceed.
+} else {
+    message("Stage 1: Using existing fcs_control_file.csv")
+    control_df <- fread("fcs_control_file.csv")
+}
 
-# --- Step 1: Check SCCs ---
-message("Step 1: Inspecting SCC Spectra...")
-M_initial <- inspect_scc_spectra(scc_dir = scc_dir, 
-                                output_dir = "gating_and_spectrum_plots", 
-                                control_file = control_file)
+# --- STAGE 2: Build Reference Matrix ---
+message("Stage 2: Building reference matrix...")
 
-message("  - Generating SCC initial report...")
-generate_scc_report(M_initial, scc_dir = scc_dir, output_file = "SCC_Initial_Audit.pdf")
+# Map custom names from the control file for build_reference_matrix
+# We convert the CSV into the named vector expected by build_reference_matrix
+custom_map <- setNames(control_df$fluorophore, tools::file_path_sans_ext(control_df$filename))
 
+opts <- gating_options(
+  histogram_pct_beads = 0.98,
+  histogram_direction_beads = "both",
+  histogram_pct_cells = 0.35,
+  histogram_direction_cells = "both"
+)
 
-# --- Step 2: Refine SCCs (Cleaning) ---
-message("\nStep 2: Refining SCC Matrix (Removing outliers)...")
-# User picks 5% cutoff based on Step 1 report
-refined <- refine_scc_matrix(M_initial, 
-                            scc_dir = scc_dir, 
-                            rrmse_threshold = 0.05, 
-                            output_dir = "scc_unmixed",
-                            report_file = "SCC_Refinement_Report.pdf")
+M <- build_reference_matrix(
+  input_folder = "scc",
+  output_folder = "autogate_plots",
+  custom_fluorophores = custom_map,
+  gating_opts = opts
+)
 
-M_final <- refined$M
-W_final <- refined$W
+# Plot spectra overlay
+plot_spectra(ref_matrix = M)
 
+# --- STAGE 3: Unmixing & Quality Check ---
+message("Stage 3: Unmixing raw data...")
+files_raw <- list.files("raw", pattern = ".*.fcs$", full.names = TRUE)
+if (length(files_raw) == 0) stop("No FCS files found in 'raw' folder")
 
-# --- Step 3: Unmix Samples ---
-message("\nStep 3: Unmixing Experimental Samples...")
-unmixed_results <- unmix_samples(sample_dir = sample_dir, 
-                               M = M_final, 
-                               method = "WLS", 
-                               output_dir = "samples_unmixed")
+results <- lapply(files_raw, function(f) {
+  name <- tools::file_path_sans_ext(basename(f))
+  message("  Processing: ", name)
+  ff <- read.FCS(f, transformation = FALSE, truncate_max_range = FALSE)
+  
+  # Subsample for faster iteration and plot clarity
+  n_cells <- nrow(ff)
+  if (n_cells > 10000) {
+      set.seed(42)
+      ff <- ff[sample(n_cells, 10000), ]
+  }
+  
+  # Use per-cell WLS with stable noise floor
+  calc_residuals(ff, M, file_name = name, method = "WLS", background_noise = 100)
+})
 
+results_df <- rbindlist(results)
+fwrite(results_df, "results_unmixed.csv")
 
-# --- Step 4: QC Samples ---
-message("\nStep 4: Generating Experimental Sample QC...")
-# Get metadata for labels
-ff_qc <- read.FCS(list.files(sample_dir, pattern="\\.fcs$", full.names=TRUE)[1])
-pd_qc <- pData(parameters(ff_qc))
+message("Generating quality plots...")
+# Plot Relative RMSE with the new percentage scaling (0-5%)
+plot_scatter_rmse(results_df, 
+                  metric = "Relative_RMSE", 
+                  output_file = "scatter_rel_rmse.png",
+                  color_limits = c(0, 5)) # Show 0% to 5% RRMSE
 
-generate_sample_qc(unmixed_results, M = M_final, 
-                  output_dir = "samples_unmixed_qc", 
-                  report_file = "Experimental_Sample_Audit.pdf",
-                  pd = pd_qc)
+# Plot marker correlations with RRMSE percentage (0-10% range)
+plot_marker_correlations(results_df, 
+                         metric = "Relative_RMSE", 
+                         output_file = "marker_correlations_rel.png",
+                         y_limits = c(0, 10))
 
-message("\nWorkflow Complete.")
-message("Reports generated: SCC_Initial_Audit.pdf, SCC_Refinement_Report.pdf, Experimental_Sample_Audit.pdf")
+# Summary stats
+summary_stats <- results_df[, .(
+    Mean_RRMSE_Pct = mean(Relative_RMSE) * 100,
+    Median_RRMSE_Pct = median(Relative_RMSE) * 100,
+    Max_RRMSE_Pct = max(Relative_RMSE) * 100,
+    Cells_Above_5Pct = sum(Relative_RMSE > 0.05)
+), by = File]
+
+fwrite(summary_stats, "summary_stats.csv")
+print(summary_stats)
+
+message("Analysis complete. Check 'scatter_rel_rmse.png' for visual QC.")

@@ -21,3 +21,11 @@ scc_unmixed/
 spectrQC_outputs/
 samples/
 scc/
+gui/node_modules/
+gui/dist/
+
+# System files
+.DS_Store
+
+# Logs
+*.log
