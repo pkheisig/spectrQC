@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Settings2, Activity, Save, RefreshCw, FileText, Check, Sliders, Palette, Circle, Sun, Moon, Maximize2 } from 'lucide-react';
 import axios from 'axios';
+import ResidualPlot from './ResidualPlot';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8001';
 
 interface MatrixRow {
   Marker: string;
@@ -61,6 +62,7 @@ const App = () => {
   const [unmixedData, setUnmixedData] = useState<any[]>([]);
   const [rawData, setRawData] = useState<any[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUnmixingMatrix, setIsUnmixingMatrix] = useState(false);
 
   const [lineWidth, setLineWidth] = useState(0.8);
   const [lineOpacity, setLineOpacity] = useState(0.85);
@@ -73,8 +75,9 @@ const App = () => {
   const [pointSize, setPointSize] = useState(1.5);
   const [pointOpacity, setPointOpacity] = useState(0.5);
   const [pointColor, setPointColor] = useState('#3b82f6');
+  const [dragSensitivity, setDragSensitivity] = useState(0.5);
 
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [pageScroll, setPageScroll] = useState(true);
   const t = THEMES[theme];
 
@@ -94,6 +97,10 @@ const App = () => {
     if (!resMatrix.data.error) {
       const matrixData = resMatrix.data;
       setMatrix(matrixData);
+
+      const isUnmix = filename.toLowerCase().includes('unmixing') || filename.toLowerCase().includes('w_');
+      setIsUnmixingMatrix(isUnmix);
+
       const detNames = Object.keys(matrixData[0]).filter(k => k !== 'Marker');
       setDetectors(detNames);
       const allMarkers = matrixData.map((r: any) => r.Marker);
@@ -116,13 +123,53 @@ const App = () => {
       M_obj[row.Marker] = { ...row };
       delete M_obj[row.Marker].Marker;
     });
-    const isUnmixingMatrix = filename.toLowerCase().includes('unmixing');
+
+    // Check type based on filename if string, or boolean if provided as override
+    // Here we use state or passed filename
+    let useType = 'reference';
+    if (typeof filename === 'string') {
+      if (filename.toLowerCase().includes('unmixing') || filename.toLowerCase().includes('w_')) useType = 'unmixing';
+    } else if (typeof filename === 'boolean') {
+      useType = filename ? 'unmixing' : 'reference';
+    }
+
     const res = await axios.post(`${API_BASE}/unmix`, {
       matrix_json: M_obj,
       raw_data_json: currentRaw,
-      type: isUnmixingMatrix ? 'unmixing' : 'reference'
+      type: useType
     });
     setUnmixedData(res.data);
+  };
+
+  const handleResidualAdjust = (xMarker: string, yMarker: string, alpha: number) => {
+    const newMatrix = matrix.map(row => {
+      if (row.Marker === yMarker) {
+        const rowX = matrix.find(r => r.Marker === xMarker);
+        if (!rowX) return row;
+
+        const newRow = { ...row };
+        Object.keys(row).forEach(key => {
+          if (key !== 'Marker' && typeof row[key] === 'number') {
+            newRow[key] = Number(row[key]) + alpha * Number(rowX[key]);
+          }
+        });
+        return newRow;
+      }
+      return row;
+    });
+
+    setMatrix(newMatrix);
+    runUnmix(newMatrix, rawData, isUnmixingMatrix as any);
+  };
+
+  const saveMatrix = async () => {
+    const newName = currentFile.replace('.csv', '_adjusted.csv');
+    await axios.post(`${API_BASE}/save_matrix`, {
+      filename: newName,
+      matrix_json: matrix
+    });
+    alert(`Saved to ${newName}`);
+    fetchMatrices();
   };
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -142,54 +189,12 @@ const App = () => {
       return row;
     });
     setMatrix(nextMatrix);
-    runUnmix(nextMatrix, rawData);
+    runUnmix(nextMatrix, rawData, isUnmixingMatrix as any);
   };
 
   const colors = COLOR_PALETTES[colorPalette];
   const markerNames = matrix.map(m => m.Marker);
   const chartWidth = detectors.length * signatureDetWidth;
-
-  const ScatterCell = useCallback(({ xKey, yKey }: { xKey: string; yKey: string }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-
-    useEffect(() => {
-      const canvas = canvasRef.current;
-      if (!canvas || unmixedData.length === 0) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      const xVals = unmixedData.map(d => d[xKey]).filter(v => v !== undefined && !isNaN(v));
-      const yVals = unmixedData.map(d => d[yKey]).filter(v => v !== undefined && !isNaN(v));
-      if (xVals.length === 0 || yVals.length === 0) return;
-
-      const xMin = Math.min(...xVals);
-      const xMax = Math.max(...xVals);
-      const yMin = Math.min(...yVals);
-      const yMax = Math.max(...yVals);
-      const xRange = xMax - xMin || 1;
-      const yRange = yMax - yMin || 1;
-
-      ctx.fillStyle = pointColor;
-      ctx.globalAlpha = pointOpacity;
-
-      for (const d of unmixedData) {
-        const x = d[xKey];
-        const y = d[yKey];
-        if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) continue;
-        const px = ((x - xMin) / xRange) * w;
-        const py = h - ((y - yMin) / yRange) * h;
-        ctx.beginPath();
-        ctx.arc(px, py, pointSize, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }, [xKey, yKey, unmixedData, pointColor, pointOpacity, pointSize]);
-
-    return <canvas ref={canvasRef} width={residualCellSize - 6} height={residualCellSize - 6} className="w-full h-full" />;
-  }, [unmixedData, pointColor, pointOpacity, pointSize, residualCellSize]);
 
   if (loading) return (
     <div className={`h-screen w-screen flex items-center justify-center ${t.bg} text-blue-400 font-medium`}>
@@ -197,7 +202,7 @@ const App = () => {
     </div>
   );
 
-  const lowerTriangleCells = markerNames.length * (markerNames.length - 1) / 2;
+  const lowerTriangleCells = selectedMarkers.length * (selectedMarkers.length - 1) / 2;
 
   return (
     <div className={`min-h-screen ${pageScroll ? '' : 'h-screen'} w-screen flex flex-col ${t.bg} ${t.text} font-sans ${pageScroll ? 'overflow-auto' : 'overflow-hidden'}`}>
@@ -225,7 +230,7 @@ const App = () => {
           <button onClick={() => fetchData()} className={`p-2 hover:bg-white/5 rounded-lg ${t.textDim}`}>
             <RefreshCw size={18} />
           </button>
-          <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+          <button onClick={saveMatrix} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
             <Save size={14} /> Save
           </button>
         </div>
@@ -345,24 +350,54 @@ const App = () => {
               <div className="p-1.5 bg-emerald-500/10 rounded"><Activity size={14} className="text-emerald-400" /></div>
               <h2 className="font-bold text-sm">Residual Monitor</h2>
               <span className={`text-xs ${t.textMuted}`}>({lowerTriangleCells} cells, {unmixedData.length} events)</span>
+              <span className="text-[10px] text-red-400 ml-4 font-bold flex items-center gap-1">
+                <Sliders size={10} /> Drag on plots to adjust crosstalk
+              </span>
+              <span className={`text-xs ${t.textMuted} ml-2`}>Sens:</span>
+              <input type="range" min="0.01" max="1" step="0.01" value={dragSensitivity} onChange={e => setDragSensitivity(Number(e.target.value))} className="w-16 h-1 rounded cursor-pointer accent-red-500" />
+              <input type="number" min="0.01" max="1" step="0.01" value={dragSensitivity} onChange={e => setDragSensitivity(Math.max(0.01, Math.min(1, Number(e.target.value))))} className={`w-12 text-xs ${t.inputBg} ${t.text} border ${t.border} rounded px-1 py-0.5 ml-1`} />
             </div>
             <div className={`${t.cardBg} rounded-lg border ${t.border} p-2 overflow-auto`} style={{ maxHeight: pageScroll ? 'none' : 'calc(100% - 28px)' }}>
               <div style={{ display: 'inline-block' }}>
+                {/* Header row for first x-axis label */}
+                <div className="flex items-center" style={{ display: selectedMarkers.includes(markerNames[0]) ? 'flex' : 'none' }}>
+                  <div style={{ width: 60 }}></div>
+                  <div className={`flex items-center justify-center text-[9px] ${t.textMuted} font-medium`} style={{ width: residualCellSize, height: 20 }}>
+                    {markerNames[0]}
+                  </div>
+                </div>
                 {/* Lower triangle rows with stair-style x-axis labels */}
                 {markerNames.map((rowName, rowIdx) => {
                   if (rowIdx === 0) return null;
+                  const rowSelected = selectedMarkers.includes(rowName);
+                  const isLastRow = rowIdx === markerNames.length - 1;
                   return (
-                    <div key={`row-${rowIdx}`} className="flex items-center">
+                    <div key={`row-${rowIdx}`} className="flex items-center" style={{ display: rowSelected ? 'flex' : 'none' }}>
                       <div className={`text-[9px] ${t.textMuted} text-right font-medium pr-2 truncate`} style={{ width: 60 }}>{rowName}</div>
-                      {markerNames.slice(0, rowIdx).map((colName, colIdx) => (
-                        <div key={`cell-${rowIdx}-${colIdx}`} className={`border ${t.border} ${t.cellBg} p-0.5`} style={{ width: residualCellSize, height: residualCellSize }}>
-                          <ScatterCell xKey={colName} yKey={rowName} />
+                      {markerNames.slice(0, rowIdx).map((colName, colIdx) => {
+                        const colSelected = selectedMarkers.includes(colName);
+                        return (
+                          <div key={`cell-${rowIdx}-${colIdx}`} className={`border ${t.border} ${t.cellBg} p-0.5`} style={{ width: residualCellSize, height: residualCellSize, display: colSelected ? 'block' : 'none' }}>
+                            <ResidualPlot
+                              xKey={colName}
+                              yKey={rowName}
+                              data={unmixedData}
+                              size={residualCellSize - 6}
+                              pointColor={pointColor}
+                              pointOpacity={pointOpacity}
+                              pointSize={pointSize}
+                              sensitivity={dragSensitivity}
+                              onAdjust={handleResidualAdjust}
+                            />
+                          </div>
+                        );
+                      })}
+                      {/* Diagonal label cell - x-axis label, but skip for last row to avoid redundancy */}
+                      {!isLastRow && (
+                        <div className={`flex items-center justify-center text-[9px] ${t.textMuted} font-medium`} style={{ width: residualCellSize, height: residualCellSize }}>
+                          {markerNames[rowIdx]}
                         </div>
-                      ))}
-                      {/* Diagonal label cell - x-axis label at same height as y-axis */}
-                      <div className={`flex items-center justify-center text-[9px] ${t.textMuted} font-medium`} style={{ width: residualCellSize, height: residualCellSize }}>
-                        {markerNames[rowIdx]}
-                      </div>
+                      )}
                     </div>
                   );
                 })}

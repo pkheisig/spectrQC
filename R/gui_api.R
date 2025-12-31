@@ -1,9 +1,10 @@
-# gui_api.R
-# API for the spectrQC Interactive Tuner
+# gui_api_adjust.R
+# API for the spectrQC Interactive Tuner (Adjustment/Crosstalk Correction)
 
 library(plumber)
 library(data.table)
 library(flowCore)
+# spectrQC must be loaded via devtools::load_all() before running this API
 
 #* @filter logger
 function(req) {
@@ -30,8 +31,7 @@ function() {
 function() {
     # Look in the parent directory (project root)
     files <- list.files("..", pattern = ".*\\.csv$")
-    # Exclude control file
-    files <- files[!grepl("control_file", files)]
+    # Return all CSVs
     return(as.character(files))
 }
 
@@ -45,11 +45,39 @@ function(filename) {
     }
 
     df <- fread(path)
+
+    # Check if it's a spillover/reference matrix (M) or unmixing matrix (W)
+    # Reference/Spillover usually has Markers as rows, Detectors as cols
+    # Unmixing usually has Detectors as rows, Markers as cols (or vice versa depending on convention)
+    # spectrQC convention:
+    # M (Reference): Rows=Markers, Cols=Detectors
+    # W (Unmixing): Rows=Markers, Cols=Detectors (so Unmixed = Raw %*% t(W))
+
     # Ensure the first column is named 'Marker' for the frontend
-    if (colnames(df)[1] != "Marker") {
+    # If the CSV has a header but first col is unnamed or "V1", fix it
+    if (colnames(df)[1] %in% c("V1", "")) {
         setnames(df, colnames(df)[1], "Marker")
+    } else if (colnames(df)[1] != "Marker") {
+        # Assume first column is Marker if it contains strings
+        if (is.character(df[[1]])) {
+            setnames(df, colnames(df)[1], "Marker")
+        }
     }
     return(df)
+}
+
+#* Save the adjusted matrix
+#* @post /save_matrix
+#* @param filename The filename to save as
+#* @param matrix_json The matrix data as JSON
+function(filename, matrix_json) {
+    # matrix_json comes in as a list of rows (objects)
+    # Convert list of lists to data.table
+    dt <- rbindlist(matrix_json, fill = TRUE)
+
+    path <- file.path("..", filename)
+    fwrite(dt, path)
+    return(list(success = TRUE, path = path))
 }
 
 #* Get unmixed data for a subset of cells from a sample
@@ -74,12 +102,27 @@ function(sample_name = NULL) {
 
     ff <- read.FCS(sample_path, transformation = FALSE, truncate_max_range = FALSE)
     raw_data <- exprs(ff)
-    if (nrow(raw_data) > 5000) {
-        raw_data <- raw_data[sample(nrow(raw_data), 5000), ]
+
+    # Subsample for speed - smaller for fast interactive updates
+    n_sub <- 2000
+    if (nrow(raw_data) > n_sub) {
+        set.seed(123)
+        raw_data <- raw_data[sample(nrow(raw_data), n_sub), ]
     }
 
     pd <- pData(parameters(ff))
-    det_info <- get_sorted_detectors(pd)
+    # Helper to get sorted detectors (copying logic from spectrQC if not exported)
+    # Assuming spectrQC is loaded or we implement basic logic
+    det_info <- tryCatch(
+        {
+            spectrQC:::get_sorted_detectors(pd)
+        },
+        error = function(e) {
+            # Fallback if function not accessible
+            fl_cols <- grep("FL", pd$name, value = TRUE)
+            list(names = fl_cols, labels = pd$desc[match(fl_cols, pd$name)])
+        }
+    )
 
     return(list(
         raw_data = as.data.frame(raw_data),
@@ -94,12 +137,13 @@ function(res) {
     return("")
 }
 
-#* Run unmixing
+#* Run unmixing (On-demand unmixing endpoint)
 #* @post /unmix
 #* @param matrix_json The matrix (M or W)
 #* @param raw_data_json The raw data
-#* @param type "reference" or "unmixing"
+#* @param type "reference" (M) or "unmixing" (W)
 function(matrix_json, raw_data_json, type = "reference") {
+    # matrix_json format: {MarkerName: {det1: val, det2: val, ...}, ...}
     markers <- names(matrix_json)
     detectors <- names(matrix_json[[1]])
 
@@ -112,17 +156,42 @@ function(matrix_json, raw_data_json, type = "reference") {
 
     Y <- as.matrix(as.data.frame(raw_data_json))
 
-    # Matching
+    # Matching columns
     common_dets <- intersect(colnames(Y), colnames(mat))
+    if (length(common_dets) == 0) {
+        return(list(error = "No matching detectors found between data and matrix"))
+    }
+
     Y_sub <- Y[, common_dets, drop = FALSE]
     mat_sub <- mat[, common_dets, drop = FALSE]
 
+    # Perform Unmixing
     if (grepl("unmixing", tolower(type))) {
         # Provided matrix IS the unmixing matrix (W)
+        # Unmixed = Raw * t(W)
         unmixed <- Y_sub %*% t(mat_sub)
     } else {
-        # Provided matrix IS the reference matrix (M), derive W
-        W <- spectrQC::derive_unmixing_matrix(mat_sub, method = "OLS")
+        # Provided matrix IS the reference matrix (M), derive W via OLS
+        # W = (M M^t)^-1 M  ? No.
+        # Simple OLS: Y ~ U * M  => U = Y * M^T * (M * M^T)^-1 ??
+        # Standard OLS unmixing: U = Y * pseudoinverse(M)
+        # U = Y * pinv(M) = Y * t(M) * (M * t(M))^-1  (if M is tall? No M is Markers x Detectors, usually Fat)
+        # Actually in spectral: Y (Cells x Dets) = U (Cells x Markers) * M (Markers x Dets)
+        # U = Y * M_pinv
+        # M_pinv = M^T (M M^T)^-1
+        # So W^T = M^T (M M^T)^-1
+        # W = (M M^T)^-1 M
+
+        W <- tryCatch(
+            {
+                spectrQC::derive_unmixing_matrix(mat_sub, method = "OLS")
+            },
+            error = function(e) {
+                # Fallback OLS
+                t(MASS::ginv(t(mat_sub)))
+            }
+        )
+
         unmixed <- Y_sub %*% t(W)
     }
 
