@@ -3,7 +3,7 @@ import { Settings2, Activity, Save, RefreshCw, FileText, Check, Sliders, Palette
 import axios from 'axios';
 import ResidualPlot from './ResidualPlot';
 
-const API_BASE = 'http://localhost:8001';
+const API_BASE = 'http://localhost:8000';
 
 interface MatrixRow {
   Marker: string;
@@ -183,7 +183,8 @@ const App = () => {
     const y = e.clientY - rect.top;
     const detIdx = Math.round((x / rect.width) * (detectors.length - 1));
     const detName = detectors[detIdx];
-    const newVal = Math.max(0, Math.min(1, 1 - (y / rect.height)));
+    const yNorm = y / rect.height;
+    const newVal = Math.max(0, Math.min(1, 1 - (yNorm - 0.05) / 0.9));
     const nextMatrix = matrix.map(row => {
       if (row.Marker === marker) return { ...row, [detName]: newVal };
       return row;
@@ -316,14 +317,14 @@ const App = () => {
                   onMouseMove={handleMouseMove}
                 >
                   {[0, 0.25, 0.5, 0.75, 1].map(tick => (
-                    <line key={tick} x1="0" y1={(1 - tick) * 100} x2={chartWidth} y2={(1 - tick) * 100} stroke={t.gridLine} strokeWidth="0.2" strokeDasharray="2 2" />
+                    <line key={tick} x1="0" y1={5 + (1 - tick) * 90} x2={chartWidth} y2={5 + (1 - tick) * 90} stroke={t.gridLine} strokeWidth="0.2" strokeDasharray="2 2" />
                   ))}
                   {selectedMarkers.map((m, mIdx) => {
                     const row = matrix.find(r => r.Marker === m);
                     if (!row) return null;
                     const points = detectors.map((det, dIdx) => {
                       const px = dIdx * signatureDetWidth + signatureDetWidth / 2;
-                      const py = (1 - Number(row[det])) * 100;
+                      const py = 5 + (1 - Number(row[det])) * 90;
                       return `${px},${py}`;
                     }).join(' ');
                     return (

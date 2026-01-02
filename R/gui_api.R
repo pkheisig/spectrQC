@@ -29,9 +29,8 @@ function() {
 #* List available matrices
 #* @get /matrices
 function() {
-    # Look in the parent directory (project root)
-    files <- list.files("..", pattern = ".*\\.csv$")
-    # Return all CSVs
+    matrix_dir <- Sys.getenv("SPECTRQC_MATRIX_DIR", getwd())
+    files <- list.files(matrix_dir, pattern = "\\.csv$", full.names = FALSE)
     return(as.character(files))
 }
 
@@ -39,7 +38,8 @@ function() {
 #* @get /load_matrix
 #* @param filename
 function(filename) {
-    path <- file.path("..", filename)
+    matrix_dir <- Sys.getenv("SPECTRQC_MATRIX_DIR", getwd())
+    path <- file.path(matrix_dir, filename)
     if (!file.exists(path)) {
         return(list(error = paste("File not found:", path)))
     }
@@ -71,11 +71,9 @@ function(filename) {
 #* @param filename The filename to save as
 #* @param matrix_json The matrix data as JSON
 function(filename, matrix_json) {
-    # matrix_json comes in as a list of rows (objects)
-    # Convert list of lists to data.table
     dt <- rbindlist(matrix_json, fill = TRUE)
-
-    path <- file.path("..", filename)
+    matrix_dir <- Sys.getenv("SPECTRQC_MATRIX_DIR", getwd())
+    path <- file.path(matrix_dir, filename)
     fwrite(dt, path)
     return(list(success = TRUE, path = path))
 }
@@ -84,16 +82,16 @@ function(filename, matrix_json) {
 #* @get /data
 #* @param sample_name The name of the sample to load
 function(sample_name = NULL) {
-    # If no sample provided, take the first one in samples/
-    files <- list.files("../samples", pattern = "fcs", full.names = TRUE)
+    samples_dir <- Sys.getenv("SPECTRQC_SAMPLES_DIR", file.path(getwd(), "samples"))
+    files <- list.files(samples_dir, pattern = "fcs", full.names = TRUE)
     if (length(files) == 0) {
-        return(list(error = "No FCS files found in samples/"))
+        return(list(error = paste("No FCS files found in", samples_dir)))
     }
 
     if (is.null(sample_name)) {
         sample_path <- files[1]
     } else {
-        sample_path <- file.path("../samples", paste0(sample_name, ".fcs"))
+        sample_path <- file.path(samples_dir, paste0(sample_name, ".fcs"))
     }
 
     if (!file.exists(sample_path)) {
