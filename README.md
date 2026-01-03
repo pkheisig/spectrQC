@@ -162,7 +162,17 @@ generate_sample_qc(
 
 ## Interactive Matrix Adjustment
 
-For manual fine-tuning, launch the web interface:
+For manual fine-tuning, use the web interface.
+
+### First-time setup (once):
+
+```bash
+# From the spectrQC package directory
+cd gui
+npm install
+```
+
+### Launch the GUI:
 
 ```r
 launch_gui(
@@ -171,7 +181,7 @@ launch_gui(
 )
 ```
 
-Open http://localhost:5174 to access the GUI.
+This starts both the backend API and frontend automatically, opening http://localhost:5174 in your browser.
 
 ---
 

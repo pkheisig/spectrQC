@@ -188,7 +188,22 @@ generate_sample_qc(
 
 # Interactive Matrix Adjustment
 
-For manual fine-tuning, launch the web interface:
+For manual fine-tuning, use the web interface.
+
+## First-time setup (once)
+
+Install frontend dependencies:
+
+```bash
+# Find the package location
+Rscript -e "cat(system.file('gui', package = 'spectrQC'))"
+
+# Navigate there and install
+cd /path/to/gui
+npm install
+```
+
+## Launch the GUI
 
 ```r
 launch_gui(
@@ -197,9 +212,10 @@ launch_gui(
 )
 ```
 
-Open http://localhost:5174 in your browser.
+This starts both the backend API and frontend automatically, opening http://localhost:5174.
 
 **Features:**
+
 - Drag on residual plots to adjust crosstalk coefficients
 - Real-time unmixing preview
 - Export adjusted matrices

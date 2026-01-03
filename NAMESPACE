@@ -1,28 +1,40 @@
+# Core workflow
+export(build_reference_matrix)
+export(calc_residuals)
+export(derive_unmixing_matrix)
+export(save_unmixing_matrix)
+export(unmix_samples)
+
+# Gating utilities
 export(gating_options)
 export(get_fluorophore_patterns)
 export(gate_positive_cells)
-export(calc_residuals)
+
+# Plotting functions
+export(plot_spectra)
 export(plot_scatter_rmse)
 export(plot_marker_correlations)
-export(plot_spectra)
-export(build_reference_matrix)
-export(create_autospectral_control_file)
-export(unmix_with_autospectral)
-export(derive_unmixing_matrix)
-export(save_unmixing_matrix)
 export(plot_unmixing_matrix)
 export(plot_detector_residuals)
+export(plot_scc_diagnostics)
+
+# Quality metrics
 export(calculate_nps)
 export(plot_nps)
 export(calculate_ssm)
 export(plot_ssm)
-export(generate_qc_report)
-export(refine_reference_matrix)
-export(plot_scc_diagnostics)
 
-# NEW Workflow Functions
-export(inspect_scc_spectra)
+# Reporting
+export(generate_qc_report)
 export(generate_scc_report)
-export(refine_scc_matrix)
-export(unmix_samples)
 export(generate_sample_qc)
+
+# Matrix refinement
+export(refine_reference_matrix)
+export(refine_scc_matrix)
+
+# AutoSpectral interface
+export(create_autospectral_control_file)
+
+# GUI
+export(launch_gui)

@@ -1,0 +1,14 @@
+^gui/node_modules$
+^\.DS_Store$
+^.*\.Rcheck$
+^test\.R$
+^Rplots\.pdf$
+^.*\.csv$
+^.*\.pdf$
+^af$
+^samples$
+^samples_unmixed_final$
+^scc$
+^scc_unmixed$
+^spectrQC_outputs$
+^gating_and_spectrum_plots$

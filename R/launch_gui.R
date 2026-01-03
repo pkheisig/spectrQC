@@ -23,45 +23,44 @@
 #' }
 launch_gui <- function(matrix_dir = getwd(), samples_dir = NULL, port = 8000, open_browser = TRUE) {
     api_path <- system.file("api/gui_api.R", package = "spectrQC")
+    gui_path <- system.file("gui", package = "spectrQC")
 
     if (api_path == "") {
         api_path <- file.path(getwd(), "inst", "api", "gui_api.R")
-        if (!file.exists(api_path)) {
-            api_path <- file.path(getwd(), "R", "gui_api.R")
-        }
+        if (!file.exists(api_path)) api_path <- file.path(getwd(), "R", "gui_api.R")
+    }
+    if (gui_path == "" || !dir.exists(gui_path)) {
+        gui_path <- file.path(getwd(), "gui")
     }
 
-    if (!file.exists(api_path)) {
-        stop("Could not find gui_api.R. Make sure spectrQC is installed or you are in the package directory.")
+    if (!file.exists(api_path)) stop("Could not find gui_api.R")
+    if (!dir.exists(gui_path)) stop("Could not find gui folder")
+
+    node_modules <- file.path(gui_path, "node_modules")
+    if (!dir.exists(node_modules)) {
+        stop("node_modules not found. Run this once in terminal:\n  cd ", gui_path, " && npm install")
     }
 
     matrix_dir <- normalizePath(matrix_dir, mustWork = TRUE)
-    if (is.null(samples_dir)) {
-        samples_dir <- file.path(matrix_dir, "samples")
-    }
+    if (is.null(samples_dir)) samples_dir <- file.path(matrix_dir, "samples")
     samples_dir <- normalizePath(samples_dir, mustWork = FALSE)
 
     Sys.setenv(SPECTRQC_MATRIX_DIR = matrix_dir)
     Sys.setenv(SPECTRQC_SAMPLES_DIR = samples_dir)
 
-    pr <- plumber::plumb(api_path)
+    message("Starting frontend (npm run dev)...")
+    system2("npm", args = c("run", "dev"), wait = FALSE, stdout = FALSE, stderr = FALSE, cwd = gui_path)
 
-    url <- paste0("http://localhost:", port)
-    message("Starting spectrQC API at ", url)
+    Sys.sleep(2)
+
+    message("Starting spectrQC API on port ", port)
     message("Matrix directory: ", matrix_dir)
     message("Samples directory: ", samples_dir)
-    message("")
-    message("IMPORTANT: Start the frontend in a separate terminal:")
-    message("  cd gui && npm install && npm run dev")
-    message("")
-    message("Then open http://localhost:5174 in your browser.")
-    message("")
+    message("Frontend: http://localhost:5174")
 
-    if (open_browser) {
-        Sys.sleep(1)
-        utils::browseURL("http://localhost:5174")
-    }
+    if (open_browser) utils::browseURL("http://localhost:5174")
 
+    pr <- plumber::plumb(api_path)
     pr$run(port = port, host = "0.0.0.0")
 
     invisible(NULL)
