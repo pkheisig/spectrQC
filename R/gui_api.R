@@ -68,10 +68,11 @@ function(filename) {
 
 #* Save the adjusted matrix
 #* @post /save_matrix
-#* @param filename The filename to save as
-#* @param matrix_json The matrix data as JSON
-function(filename, matrix_json) {
-    dt <- rbindlist(matrix_json, fill = TRUE)
+function(req) {
+    body <- jsonlite::fromJSON(req$postBody)
+    filename <- body$filename
+    matrix_data <- body$matrix_json
+    dt <- as.data.table(matrix_data)
     matrix_dir <- Sys.getenv("SPECTRQC_MATRIX_DIR", getwd())
     path <- file.path(matrix_dir, filename)
     fwrite(dt, path)

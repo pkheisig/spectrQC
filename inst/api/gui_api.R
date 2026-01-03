@@ -72,13 +72,11 @@ function(filename) {
 
 #* Save the adjusted matrix
 #* @post /save_matrix
-#* @param filename The filename to save as
-#* @param matrix_json The matrix data as JSON
-function(filename, matrix_json) {
-    # matrix_json comes in as a list of rows (objects)
-    # Convert list of lists to data.table
-    dt <- rbindlist(matrix_json, fill = TRUE)
-
+function(req) {
+    body <- jsonlite::fromJSON(req$postBody)
+    filename <- body$filename
+    matrix_data <- body$matrix_json
+    dt <- as.data.table(matrix_data)
     path <- file.path("../..", filename)
     fwrite(dt, path)
     return(list(success = TRUE, path = path))

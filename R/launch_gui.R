@@ -49,7 +49,10 @@ launch_gui <- function(matrix_dir = getwd(), samples_dir = NULL, port = 8000, op
     Sys.setenv(SPECTRQC_SAMPLES_DIR = samples_dir)
 
     message("Starting frontend (npm run dev)...")
-    system2("npm", args = c("run", "dev"), wait = FALSE, stdout = FALSE, stderr = FALSE, cwd = gui_path)
+    old_wd <- getwd()
+    setwd(gui_path)
+    system2("npm", args = c("run", "dev"), wait = FALSE, stdout = FALSE, stderr = FALSE)
+    setwd(old_wd)
 
     Sys.sleep(2)
 
