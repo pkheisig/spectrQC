@@ -1,5 +1,9 @@
 # spectrQC: Full Spectrum Flow Cytometry Quality Control
 
+[![R-CMD-check](https://github.com/pkheisig/spectrQC/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/pkheisig/spectrQC/actions/workflows/R-CMD-check.yaml)
+
+**Requires R >= 4.1.0**
+
 `spectrQC` is an R package for validating spectral unmixing accuracy. It provides a complete pipeline to extract fluorophore signatures from single-color controls, refine them using quality metrics, and unmix experimental samples with detailed diagnostic reports.
 
 ## Key Features
