@@ -1,0 +1,223 @@
+---
+title: "Getting Started with spectrQC"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started with spectrQC}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# spectrQC: Spectral Unmixing Quality Control
+
+This tutorial walks you through the complete spectrQC workflow for validating spectral flow cytometry unmixing.
+
+## Installation
+
+```r
+devtools::install_github("pkheisig/spectrQC")
+library(spectrQC)
+```
+
+## Project Setup
+
+Organize your data with this folder structure:
+
+```
+my_project/
+├── scc/                          # Single-color control FCS files
+│   ├── FITC_beads.fcs
+│   ├── PE_beads.fcs
+│   └── Unstained.fcs             # Autofluorescence control
+├── samples/                      # Experimental FCS files
+│   └── Sample1.fcs
+└── fcs_control_file.csv          # Control file (optional)
+```
+
+## Control File
+
+The control file maps FCS filenames to fluorophore names and peak channels. Generate it using [AutoSpectral](https://github.com/DrCytometer/AutoSpectral):
+
+```r
+# Install AutoSpectral
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install(c("flowWorkspace", "flowCore", "PeacoQC"))
+devtools::install_github("DrCytometer/AutoSpectral")
+
+# Generate control file
+library(AutoSpectral)
+asp <- get.autospectral.param()
+create.control.file("scc", asp)
+```
+
+Review and edit the generated `fcs_control_file.csv` to ensure correct fluorophore names.
+
+**Manual format:**
+
+| Column | Description |
+|--------|-------------|
+| `filename` | FCS filename |
+| `fluorophore` | Fluorophore name (becomes row name in matrix) |
+| `channel` | Peak detector for histogram gating |
+| `universal.negative` | TRUE to use as background reference |
+
+---
+
+# Step 1: Build Reference Matrix
+
+Extract spectral signatures from single-color controls:
+
+```r
+library(spectrQC)
+
+# Load control file (optional but recommended)
+control_df <- data.table::fread("fcs_control_file.csv")
+
+# Build reference matrix
+M <- build_reference_matrix(
+  input_folder = "scc",
+  output_folder = "gating_plots",
+  control_df = control_df,
+  default_sample_type = "beads"
+)
+```
+
+This creates gating and spectrum plots in `gating_plots/` and exports `reference_matrix.csv`.
+
+### Adjusting Gating Parameters
+
+If auto-gating fails, fine-tune these settings:
+
+```r
+M <- build_reference_matrix(
+  input_folder = "scc",
+  output_folder = "gating_plots",
+  histogram_pct_beads = 0.98,         # Gate width for positive beads
+  histogram_pct_cells = 0.35,         # Gate width for cells
+  max_clusters = 6,                   # Maximum GMM populations
+  gate_contour_beads = 0.999999999,   # Tight bead gate contour
+  gate_contour_cells = 0.95,          # Looser cell gate contour
+  bead_gate_scale = 1.3               # Ellipse scale factor
+)
+```
+
+---
+
+# Step 2: Generate SCC Report
+
+Review the extracted spectral signatures:
+
+```r
+generate_scc_report(
+  M = M,
+  scc_dir = "scc",
+  output_file = "SCC_QC_Report.pdf"
+)
+```
+
+**Check for:**
+- Smooth spectral curves with distinct peaks
+- Absence of jagged lines or unexpected peaks
+- Low values in the Spectral Spread Matrix
+
+---
+
+# Step 3: Refine the Matrix
+
+Remove debris and outliers using RRMSE-based filtering:
+
+```r
+refined <- refine_scc_matrix(
+  M = M,
+  scc_dir = "scc",
+  rrmse_threshold = 0.05,
+  output_dir = "scc_unmixed"
+)
+
+M_final <- refined$M
+W_final <- refined$W
+```
+
+This exports `refined_reference_matrix.csv` and `refined_unmixing_matrix.csv`.
+
+---
+
+# Step 4: Unmix Experimental Samples
+
+Apply the refined matrix to your experimental data:
+
+```r
+unmixed <- unmix_samples(
+  sample_dir = "samples",
+  M = M_final,
+  method = "WLS",
+  output_dir = "samples_unmixed"
+)
+```
+
+**Unmixing methods:**
+
+| Method | Description |
+|--------|-------------|
+| OLS | Ordinary least squares — fast, good for most panels |
+| WLS | Weighted least squares — best accuracy, accounts for photon noise |
+| NNLS | Non-negative least squares — forces positive abundances |
+
+---
+
+# Step 5: Generate Sample QC Report
+
+Create the final quality assessment:
+
+```r
+generate_sample_qc(
+  unmixed_list = unmixed,
+  M = M_final,
+  report_file = "Sample_QC_Report.pdf"
+)
+```
+
+**Interpreting results:**
+
+| Plot | Expected | Issues |
+|------|----------|--------|
+| RRMSE scatter | Gray/light cells | Red clusters indicate unmixing failures |
+| Marker correlations | Flat trend lines | Upward trends suggest signature problems |
+| Detector residuals | Small boxplots near zero | Large spikes indicate unaccounted signals |
+
+---
+
+# Interactive Matrix Adjustment
+
+For manual fine-tuning, launch the web interface:
+
+```r
+launch_gui(
+  matrix_dir = getwd(),
+  samples_dir = "samples"
+)
+```
+
+Open http://localhost:5174 in your browser.
+
+**Features:**
+- Drag on residual plots to adjust crosstalk coefficients
+- Real-time unmixing preview
+- Export adjusted matrices
+
+---
+
+# Function Reference
+
+| Function | Purpose |
+|----------|---------|
+| `build_reference_matrix()` | Extract signatures from single-color controls |
+| `generate_scc_report()` | Generate SCC quality report (PDF) |
+| `refine_scc_matrix()` | Clean matrix using RRMSE filtering |
+| `unmix_samples()` | Unmix experimental FCS files |
+| `generate_sample_qc()` | Generate sample quality report (PDF) |
+| `launch_gui()` | Launch interactive web interface |
+
+---
+
+**Author**: Paul Heisig  
+**Contact**: p.k.s.heisig@amsterdamumc.nl
