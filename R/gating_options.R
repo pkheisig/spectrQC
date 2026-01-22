@@ -1,14 +1,14 @@
 #' Gating options
-#' 
+#'
 #' @param histogram_pct_beads Percentage of beads to gate in histogram
 #' @param histogram_direction_beads Direction to gate beads ("both", "left", "right")
 #' @param histogram_pct_cells Percentage of cells to gate in histogram
 #' @param histogram_direction_cells Direction to gate cells ("both", "left", "right")
 #' @export
 gating_options <- function(histogram_pct_beads = 0.98,
-                          histogram_direction_beads = "both",
-                          histogram_pct_cells = 0.35,
-                          histogram_direction_cells = "both") {
+                           histogram_direction_beads = "both",
+                           histogram_pct_cells = 0.35,
+                           histogram_direction_cells = "both") {
     list(
         histogram_pct_beads = histogram_pct_beads,
         histogram_direction_beads = histogram_direction_beads,
@@ -24,6 +24,11 @@ get_fluorophore_patterns <- function() {
         unstained = c("US_UT", "Unstained", "unstained", "blank", "AF only", "AF"),
         beads = c(
             # Alexa dyes
+            "Alexa Fluor 350", "Alexa Fluor 405", "Alexa Fluor 430", "Alexa Fluor 488", "Alexa Fluor 514",
+            "Alexa Fluor 532", "Alexa Fluor 546", "Alexa Fluor 555", "Alexa Fluor 568", "Alexa Fluor 594",
+            "Alexa Fluor 610", "Alexa Fluor 633", "Alexa Fluor 647", "Alexa Fluor 660", "Alexa Fluor 680",
+            "Alexa Fluor 700", "Alexa Fluor 750", "Alexa Fluor 790",
+            "AlexaFluor 594", "AlexaFluor", "Alexa Fluor", "AF594",
             "Alexa 350", "Alexa 405", "Alexa 430", "Alexa 488", "Alexa 514",
             "Alexa 532", "Alexa 546", "Alexa 555", "Alexa 568", "Alexa 594",
             "Alexa 610", "Alexa 633", "Alexa 647", "Alexa 660", "Alexa 680",
@@ -54,7 +59,7 @@ get_fluorophore_patterns <- function() {
 }
 
 #' Get Sorted Detectors by Laser and Wavelength
-#' 
+#'
 #' @param pd pData from flowFrame parameters
 #' @return A list with [[names]] (FL...) and [[labels]] (405nm - 420/10) sorted by laser.
 #' @export
@@ -64,23 +69,23 @@ get_sorted_detectors <- function(pd) {
     # Exclude FSC, SSC, Time
     exclude_patterns <- "^FSC|^SSC|^Time|^Event|^ID"
     matches <- grep(exclude_patterns, pd$name, ignore.case = TRUE, invert = TRUE)
-    
+
     # Further filter for Area channels if they exist, otherwise use all
     area_matches <- grep("-A$", pd$name[matches])
     if (length(area_matches) > 0) {
         matches <- matches[area_matches]
     }
-    
+
     fl_pd <- pd[matches, ]
-    
+
     # 2. Extract descriptions/labels
     # Use 'desc' if it looks like a filter name, otherwise fallback to 'name'
     desc <- as.character(fl_pd$desc)
     names <- trimws(as.character(fl_pd$name))
-    
+
     # Final labels for plotting
     labels <- ifelse(!is.na(desc) & desc != "" & desc != names, desc, names)
-    
+
     # 3. Parse laser and wavelength for sorting
     # Try to find laser nm (e.g., "405nm" or "405-")
     laser_nm <- as.integer(gsub(".*?([0-9]{3})\\s*nm.*", "\\1", labels))
@@ -88,26 +93,34 @@ get_sorted_detectors <- function(pd) {
     if (all(is.na(laser_nm))) {
         laser_code <- substr(names, 1, 1)
         laser_nm <- ifelse(laser_code == "U", 355,
-                    ifelse(laser_code == "V", 405,
-                    ifelse(laser_code == "B", 488,
+            ifelse(laser_code == "V", 405,
+                ifelse(laser_code == "B", 488,
                     ifelse(laser_code == "Y" | laser_code == "G", 561,
-                    ifelse(laser_code == "R", 640, 999)))))
+                        ifelse(laser_code == "R", 640, 999)
+                    )
+                )
+            )
+        )
     }
-    
+
     # Laser order: UV (~355), V (~405), B (~488), YG (~561), R (~640)
     laser_priority <- ifelse(laser_nm < 360, 1, # UV
-                      ifelse(laser_nm < 420, 2, # V
-                      ifelse(laser_nm < 500, 3, # B
-                      ifelse(laser_nm < 600, 4, # YG
-                      5)))) # R
-    
+        ifelse(laser_nm < 420, 2, # V
+            ifelse(laser_nm < 500, 3, # B
+                ifelse(laser_nm < 600, 4, # YG
+                    5
+                )
+            )
+        )
+    ) # R
+
     # Wavelength: look for numbers after the laser name
     wavelength <- as.integer(gsub(".*?([0-9]{3}).*", "\\1", sub("^[0-9]{3}nm", "", labels)))
     if (all(is.na(wavelength))) wavelength <- seq_along(names) # Fallback to index
-    
+
     # 4. Sort
     ord <- order(laser_priority, wavelength, na.last = TRUE)
-    
+
     return(list(
         names = names[ord],
         labels = labels[ord],

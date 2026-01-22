@@ -209,9 +209,12 @@ plot_unmixing_matrix(
 # Launches the interactive web-based matrix adjustment interface.
 # Requires npm to be installed for the frontend.
 
+devtools::load_all()
+
 launch_gui(
     matrix_dir = getwd(), # Directory containing matrix CSVs
     samples_dir = NULL, # FCS samples directory (default: matrix_dir/samples)
     port = 8000, # API port
     open_browser = TRUE # Open browser automatically
 )
+    

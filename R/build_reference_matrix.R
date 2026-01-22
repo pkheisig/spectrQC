@@ -26,6 +26,26 @@ build_reference_matrix <- function(
 
     sample_patterns <- get_fluorophore_patterns()
     fcs_files <- list.files(input_folder, pattern = "\\.fcs$", full.names = TRUE)
+
+    # Filter to prioritize _aligned versions if duplicates exist
+    basenames <- tools::file_path_sans_ext(basename(fcs_files))
+    aligned_indices <- grep("_aligned$", basenames)
+
+    if (length(aligned_indices) > 0) {
+        kept_files <- fcs_files
+        for (idx in aligned_indices) {
+            aligned_file <- fcs_files[idx]
+            base_original <- sub("_aligned$", "", basenames[idx])
+            # pattern match exact basename (e.g. "File.fcs" vs "File_aligned.fcs")
+            # We want to remove "File.fcs" if "File_aligned.fcs" is present
+            dup_idx <- which(basenames == base_original)
+            if (length(dup_idx) > 0) {
+                message("  Using aligned file: ", basename(aligned_file), " (Skipping original)")
+                kept_files <- setdiff(kept_files, fcs_files[dup_idx])
+            }
+        }
+        fcs_files <- kept_files
+    }
     out_path <- normalizePath(output_folder, mustWork = FALSE)
     dir.create(file.path(out_path, "fsc_ssc"), showWarnings = FALSE, recursive = TRUE)
     dir.create(file.path(out_path, "histogram"), showWarnings = FALSE, recursive = TRUE)
@@ -169,6 +189,23 @@ build_reference_matrix <- function(
         ff <- flowCore::read.FCS(fcs_file, transformation = FALSE, truncate_max_range = FALSE)
         pd <- flowCore::pData(flowCore::parameters(ff))
         raw_data <- flowCore::exprs(ff)
+
+        # Sanity check for data integrity
+        if (any(is.infinite(raw_data))) {
+            message("  Skipping ", sn, ": Contains infinite values.")
+            next
+        }
+        na_prop <- sum(is.na(raw_data)) / length(raw_data)
+        if (na_prop > 0.1) {
+            message("  Skipping ", sn, ": Too many NAs (", round(na_prop * 100, 1), "%).")
+            next
+        }
+        max_val <- max(raw_data, na.rm = TRUE)
+        if (max_val > 1e9) {
+            message("  Skipping ", sn, ": Extreme values detected (max > 1e9). File may be corrupted.")
+            next
+        }
+
         fsc <- pd$name[grepl("^FSC", pd$name) & grepl("-A$", pd$name)][1]
         ssc <- pd$name[grepl("^SSC", pd$name) & grepl("-A$", pd$name)][1]
 
@@ -201,19 +238,26 @@ build_reference_matrix <- function(
             if (length(selected_pops) == 0) selected_pops <- select_bead_population(gmm_result)$selected
         }
         if (length(selected_pops) == 0) next
-        final_gate <- create_merged_gate(gmm_result, selected_pops, gate_level, scale = if (sample_info$type == "beads") bead_gate_scale else 1.0, clip_x = fsc_max * 0.95, clip_y = ssc_max * 0.95)
+        final_gate <- create_merged_gate(gmm_result, selected_pops, gate_level, scale = if (sample_info$type == "beads") bead_gate_scale else 1.0, clip_x = Inf, clip_y = Inf)
 
         gated_data <- raw_data[sp::point.in.polygon(raw_data[, fsc], raw_data[, ssc], final_gate$x, final_gate$y) > 0, ]
         if (nrow(gated_data) < 100) next
 
-        peak_channel <- if (nrow(row_info) > 0 && !is.na(row_info$channel[1]) && row_info$channel[1] != "") row_info$channel[1] else detector_names[which.max(apply(gated_data[, detector_names, drop = FALSE], 2, function(x) quantile(x, 0.999)))]
+        peak_channel <- if (nrow(row_info) > 0 && !is.na(row_info$channel[1]) && row_info$channel[1] != "") {
+            row_info$channel[1]
+        } else {
+            detector_names[which.max(apply(gated_data[, detector_names, drop = FALSE], 2, function(x) quantile(x, 0.999, na.rm = TRUE)))]
+        }
+
+        peak_channel <- if (nrow(row_info) > 0 && !is.na(row_info$channel[1]) && row_info$channel[1] != "") row_info$channel[1] else detector_names[which.max(apply(gated_data[, detector_names, drop = FALSE], 2, function(x) quantile(x, 0.999, na.rm = TRUE)))]
+        message("  Peak channel: ", peak_channel)
         peak_vals <- gated_data[, peak_channel]
         vals_log <- log10(pmax(peak_vals, 1))
         if (sample_info$type %in% c("unstained", "cells")) {
             vals_above <- vals_log
         } else {
             d_full <- density(vals_log, n = 512)
-            mid_idx <- which(d_full$x > histogram_min_x_log & d_full$x < quantile(vals_log, 0.98))
+            mid_idx <- which(d_full$x > histogram_min_x_log & d_full$x < quantile(vals_log, 0.98, na.rm = TRUE))
             min_x <- if (length(mid_idx) > 0) d_full$x[mid_idx[which.min(d_full$y[mid_idx])]] else histogram_min_x_log
             vals_above <- vals_log[vals_log >= min_x]
         }
@@ -229,19 +273,19 @@ build_reference_matrix <- function(
             lq <- 0.5 - pct / 2
             uq <- 0.5 + pct / 2
         }
-        gate_min <- 10^quantile(vals_above, max(0, lq))
-        gate_max <- 10^quantile(vals_above, min(1, uq))
+        gate_min <- 10^quantile(vals_above, max(0, lq), na.rm = TRUE)
+        gate_max <- 10^quantile(vals_above, min(1, uq), na.rm = TRUE)
         final_gated_data <- gated_data[peak_vals >= gate_min & peak_vals <= gate_max, ]
-        neg_gated_data <- gated_data[peak_vals <= 10^quantile(vals_log, 0.15), ]
+        neg_gated_data <- gated_data[peak_vals <= 10^quantile(vals_log, 0.15, na.rm = TRUE), ]
         if (nrow(final_gated_data) < 10) next
 
-        pos_spectrum_raw <- apply(final_gated_data[, detector_names, drop = FALSE], 2, median)
-        neg_spectrum_raw <- apply(gated_data[peak_vals <= 10^quantile(vals_log, 0.15), detector_names, drop = FALSE], 2, median)
+        pos_spectrum_raw <- apply(final_gated_data[, detector_names, drop = FALSE], 2, median, na.rm = TRUE)
+        neg_spectrum_raw <- apply(gated_data[peak_vals <= 10^quantile(vals_log, 0.15, na.rm = TRUE), detector_names, drop = FALSE], 2, median, na.rm = TRUE)
         use_univ <- if (nrow(row_info) > 0 && !is.na(row_info$universal.negative[1])) (row_info$universal.negative[1] %in% c("TRUE", TRUE, "AF")) else FALSE
         final_neg <- if (use_univ && !is.null(af_data_raw)) af_data_raw else neg_spectrum_raw
         sig_pure <- pmax(pos_spectrum_raw - final_neg, 0)
-        if (max(sig_pure) <= 0) sig_pure <- pmax(pos_spectrum_raw, 0)
-        spectrum_norm <- sig_pure / max(sig_pure)
+        if (max(sig_pure, na.rm = TRUE) <= 0) sig_pure <- pmax(pos_spectrum_raw, 0)
+        spectrum_norm <- sig_pure / max(sig_pure, na.rm = TRUE)
 
         # FSC/SSC plot
         fsc_desc <- pd$desc[pd$name == fsc]
@@ -273,8 +317,8 @@ build_reference_matrix <- function(
 
         # Spectrum plot logic - based on working code from autogate_contour.R
         log_mat <- log10(pmax(final_gated_data[, detector_names, drop = FALSE], 1e-3))
-        min_y <- floor(min(log_mat))
-        max_y <- ceiling(max(log_mat))
+        min_y <- floor(min(log_mat, na.rm = TRUE))
+        max_y <- ceiling(max(log_mat, na.rm = TRUE))
         breaks <- seq(min_y, max_y, length.out = 151)
         bin_mid <- (breaks[-1] + breaks[-length(breaks)]) / 2
         bin_height <- breaks[2] - breaks[1]
@@ -292,7 +336,7 @@ build_reference_matrix <- function(
         dt_c[, y := y_orig^y_power]
 
         if (nrow(dt_c) == 0) {
-            message("  Warning: dt_c is empty for ", sn, ". Max count: ", max(counts_mat))
+            message("  Warning: dt_c is empty for ", sn, ". Max count: ", max(counts_mat, na.rm = TRUE))
         } else {
             message("  Plotting ", nrow(dt_c), " bins for ", sn)
         }
@@ -323,7 +367,13 @@ build_reference_matrix <- function(
     results_dt <- data.table::rbindlist(results_list)
     spectra_list <- results_dt$spectrum
     names(spectra_list) <- results_dt$fluorophore
-    if (!is.null(af_data_raw)) spectra_list[["AF"]] <- af_data_raw / max(af_data_raw)
+    if (!is.null(af_data_raw)) spectra_list[["AF"]] <- af_data_raw / max(af_data_raw, na.rm = TRUE)
+
+    if (length(spectra_list) == 0) {
+        warning("No valid spectra found!")
+        return(NULL)
+    }
+
     M <- do.call(rbind, spectra_list)
     colnames(M) <- detector_names
     M_df <- as.data.frame(M)
