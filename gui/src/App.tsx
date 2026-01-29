@@ -10,6 +10,42 @@ interface MatrixRow {
     [key: string]: any;
 }
 
+// Helper to perform Unmixing on client (Raw * W^T)
+const calculateUnmixing = (rawData: any[], W: any[], detectors: string[]) => {
+    // W is array of objects {Marker: "Name", Det1: val, ...}
+    // rawData is array of objects {Det1: val, ...}
+    // Result should be array of objects {Marker1: val, ...}
+
+    // Pre-process W for speed
+    // Create an array of markers and their coefficients (using Float64Array for performance)
+    const markers = W.map(row => {
+        const markerName = row.Marker;
+        const coeffs = new Float64Array(detectors.length);
+        detectors.forEach((det, i) => {
+            coeffs[i] = Number(row[det] || 0);
+        });
+        return { name: markerName, coeffs };
+    });
+
+    return rawData.map(cell => {
+        const result: any = {};
+        // Parse cell values once into typed array
+        const cellVals = new Float64Array(detectors.length);
+        for(let i=0; i<detectors.length; i++) {
+            cellVals[i] = Number(cell[detectors[i]]) || 0;
+        }
+
+        markers.forEach(m => {
+            let sum = 0;
+            for(let i=0; i<detectors.length; i++) {
+                sum += cellVals[i] * m.coeffs[i];
+            }
+            result[m.name] = sum;
+        });
+        return result;
+    });
+};
+
 const COLOR_PALETTES = {
     default: ['#60a5fa', '#f472b6', '#34d399', '#fbbf24', '#a78bfa', '#fb7185', '#38bdf8', '#4ade80', '#facc15', '#c084fc'],
     neon: ['#00ff87', '#ff00ff', '#00ffff', '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#ff9f45', '#ee6ff8', '#45b7d1'],
@@ -85,23 +121,51 @@ const App = () => {
     };
 
     const runUnmix = async (currentM: any[], currentRaw: any[], filename = currentFile) => {
+        // Detectors from Matrix
+        const mDets = Object.keys(currentM[0] || {}).filter(k => k !== 'Marker');
+        // Detectors from Raw (check first row, if available)
+        const rawDets = currentRaw.length > 0 ? Object.keys(currentRaw[0]).filter(k => k !== 'Marker') : mDets;
+
+        // Intersection of detectors (to match server-side logic of using common detectors)
+        const commonDets = mDets.filter(d => rawDets.includes(d));
+
+        // Prepare M_obj with only common detectors
         const M_obj: any = {};
         currentM.forEach(row => {
-            M_obj[row.Marker] = { ...row };
-            delete M_obj[row.Marker].Marker;
+            const filteredRow: any = {};
+            commonDets.forEach(d => {
+                filteredRow[d] = row[d];
+            });
+            M_obj[row.Marker] = filteredRow;
         });
+
         let useType = 'reference';
         if (typeof filename === 'string') {
             if (filename.toLowerCase().includes('unmixing') || filename.toLowerCase().includes('w_')) useType = 'unmixing';
         } else if (typeof filename === 'boolean') {
             useType = filename ? 'unmixing' : 'reference';
         }
-        const res = await axios.post(`${API_BASE}/unmix`, {
-            matrix_json: M_obj,
-            raw_data_json: currentRaw,
-            type: useType
-        });
-        setUnmixedData(res.data);
+
+        let W_data: any[] = [];
+
+        // OPTIMIZATION: Client-side unmixing
+        // If type is unmixing, currentM IS the unmixing matrix.
+        if (useType === 'unmixing') {
+            W_data = currentM;
+        } else {
+            // If reference, we need W from server.
+            // Call API WITHOUT raw_data_json to get W.
+            // Sending M_obj restricted to commonDets ensures W is calculated on correct subset.
+            const res = await axios.post(`${API_BASE}/unmix`, {
+                matrix_json: M_obj,
+                raw_data_json: null,
+                type: useType
+            });
+            W_data = res.data;
+        }
+
+        const unmixed = calculateUnmixing(currentRaw, W_data, commonDets);
+        setUnmixedData(unmixed);
     };
 
     const handleResidualAdjust = (xMarker: string, yMarker: string, alpha: number) => {

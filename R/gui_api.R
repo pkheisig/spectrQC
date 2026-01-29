@@ -139,9 +139,9 @@ function(res) {
 #* Run unmixing (On-demand unmixing endpoint)
 #* @post /unmix
 #* @param matrix_json The matrix (M or W)
-#* @param raw_data_json The raw data
+#* @param raw_data_json The raw data (Optional - if provided, server unmixes. If NULL, server returns W)
 #* @param type "reference" (M) or "unmixing" (W)
-function(matrix_json, raw_data_json, type = "reference") {
+function(matrix_json, raw_data_json = NULL, type = "reference") {
     # matrix_json format: {MarkerName: {det1: val, det2: val, ...}, ...}
     markers <- names(matrix_json)
     detectors <- names(matrix_json[[1]])
@@ -152,6 +152,25 @@ function(matrix_json, raw_data_json, type = "reference") {
     }
     rownames(mat) <- markers
     colnames(mat) <- detectors
+
+    # If raw_data_json is NULL, just return the unmixing matrix W
+    if (is.null(raw_data_json)) {
+        if (grepl("unmixing", tolower(type))) {
+            W <- mat
+        } else {
+            W <- tryCatch(
+                {
+                    spectrQC::derive_unmixing_matrix(mat, method = "OLS")
+                },
+                error = function(e) {
+                    t(MASS::ginv(t(mat)))
+                }
+            )
+        }
+        df_W <- as.data.frame(W)
+        df_W$Marker <- rownames(W)
+        return(df_W)
+    }
 
     Y <- as.matrix(as.data.frame(raw_data_json))
 
@@ -171,16 +190,6 @@ function(matrix_json, raw_data_json, type = "reference") {
         unmixed <- Y_sub %*% t(mat_sub)
     } else {
         # Provided matrix IS the reference matrix (M), derive W via OLS
-        # W = (M M^t)^-1 M  ? No.
-        # Simple OLS: Y ~ U * M  => U = Y * M^T * (M * M^T)^-1 ??
-        # Standard OLS unmixing: U = Y * pseudoinverse(M)
-        # U = Y * pinv(M) = Y * t(M) * (M * t(M))^-1  (if M is tall? No M is Markers x Detectors, usually Fat)
-        # Actually in spectral: Y (Cells x Dets) = U (Cells x Markers) * M (Markers x Dets)
-        # U = Y * M_pinv
-        # M_pinv = M^T (M M^T)^-1
-        # So W^T = M^T (M M^T)^-1
-        # W = (M M^T)^-1 M
-
         W <- tryCatch(
             {
                 spectrQC::derive_unmixing_matrix(mat_sub, method = "OLS")
