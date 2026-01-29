@@ -36,14 +36,8 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS",
         }
         A <- Y %*% Mt %*% solve(matrix_to_invert)
     } else if (method == "NNLS") {
-        # Non-Negative Least Squares (slower, per-cell)
-        if (!requireNamespace("nnls", quietly = TRUE)) {
-            stop("Package 'nnls' required for NNLS. Install with: install.packages('nnls')")
-        }
-        A <- matrix(0, nrow = n_cells, ncol = n_fluor)
-        for (i in seq_len(n_cells)) {
-            A[i, ] <- nnls::nnls(Mt, Y[i, ])$x
-        }
+        # Non-Negative Least Squares (Vectorized Coordinate Descent)
+        A <- solve_nnls_batch(M, Y)
     } else if (method == "WLS") {
         # Weighted Least Squares (Per-Cell)
         A <- matrix(0, nrow = n_cells, ncol = n_fluor)
@@ -90,4 +84,39 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS",
     } else {
         return(out)
     }
+}
+
+#' Batch NNLS Solver using Coordinate Descent
+#'
+#' @param M Reference matrix (fluorophores x detectors)
+#' @param Y Observed data (cells x detectors)
+#' @param max_iter Maximum iterations
+#' @return Matrix of coefficients (cells x fluorophores)
+#' @keywords internal
+solve_nnls_batch <- function(M, Y, max_iter = 50) {
+    XtX <- M %*% t(M)  # n_fluor x n_fluor
+    Xty <- Y %*% t(M)  # n_cells x n_fluor
+
+    n_cells <- nrow(Y)
+    n_fluor <- nrow(M)
+
+    # Initialization: OLS
+    # Handle singularity
+    if (rcond(XtX) < 1e-10) {
+        A <- matrix(0, nrow = n_cells, ncol = n_fluor)
+    } else {
+        A <- Xty %*% solve(XtX)
+        A[A < 0] <- 0
+    }
+
+    # Coordinate Descent
+    for (iter in seq_len(max_iter)) {
+        for (j in seq_len(n_fluor)) {
+            # Update column j
+            current_val <- A[, j]
+            numerator <- Xty[, j] - (A %*% XtX[, j]) + current_val * XtX[j, j]
+            A[, j] <- pmax(0, numerator / XtX[j, j])
+        }
+    }
+    return(A)
 }

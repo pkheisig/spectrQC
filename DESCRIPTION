@@ -6,7 +6,7 @@ Author: Paul Heisig
 Maintainer: Paul Heisig <p.k.s.heisig@amsterdamumc.nl>
 Description: Validate spectral flow cytometry data by calculating unmixing residuals.
 License: MIT
-Depends: flowCore, ggplot2, dplyr, tidyr, data.table, mclust, sp, scales, nnls
+Depends: flowCore, ggplot2, dplyr, tidyr, data.table, mclust, sp, scales
 Suggests: AutoSpectral
 Encoding: UTF-8
 RoxygenNote: 7.2.3
