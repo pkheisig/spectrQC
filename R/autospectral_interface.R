@@ -97,7 +97,14 @@ create_autospectral_control_file <- function(input_folder = "scc",
         fn <- df$filename[i]
         path <- if(file.exists(file.path(af_folder, fn))) file.path(af_folder, fn) else file.path(input_folder, fn)
         tryCatch({
-            ff <- flowCore::read.FCS(path, transformation = FALSE, truncate_max_range = FALSE)
+            # Try reading a subset first for performance
+            ff <- tryCatch({
+                flowCore::read.FCS(path, transformation = FALSE, truncate_max_range = FALSE, which.lines = 1000)
+            }, error = function(e) {
+                # Fallback to full read if subset fails
+                flowCore::read.FCS(path, transformation = FALSE, truncate_max_range = FALSE)
+            })
+
             pd <- flowCore::pData(flowCore::parameters(ff))
             fl_pd <- get_sorted_detectors(pd)
             if (length(fl_pd$names) > 0) {
