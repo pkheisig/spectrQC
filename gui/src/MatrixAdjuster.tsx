@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { RefreshCw, Play, Save, Check } from 'lucide-react';
 
 interface MatrixAdjusterProps {
@@ -25,15 +25,8 @@ const MatrixAdjuster: React.FC<MatrixAdjusterProps> = ({ unmixedData, matrix, se
     }
   }, [markers]);
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !xMarker || !yMarker || unmixedData.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
+  const bounds = useMemo(() => {
+    if (!xMarker || !yMarker || unmixedData.length === 0) return null;
 
     // Get Data
     const xVals = unmixedData.map(d => d[xMarker]);
@@ -54,10 +47,26 @@ const MatrixAdjuster: React.FC<MatrixAdjusterProps> = ({ unmixedData, matrix, se
     const yRange = yMax - yMin;
     const xPad = xRange * 0.1;
     const yPad = yRange * 0.1;
-    const finalXMin = xMin - xPad;
-    const finalXMax = xMax + xPad;
-    const finalYMin = yMin - yPad;
-    const finalYMax = yMax + yPad;
+
+    return {
+        finalXMin: xMin - xPad,
+        finalXMax: xMax + xPad,
+        finalYMin: yMin - yPad,
+        finalYMax: yMax + yPad
+    };
+  }, [unmixedData, xMarker, yMarker]);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !bounds) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { finalXMin, finalXMax, finalYMin, finalYMax } = bounds;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
 
     const toPx = (v: number, min: number, max: number, size: number) => {
       return ((v - min) / (max - min)) * size;
@@ -79,8 +88,8 @@ const MatrixAdjuster: React.FC<MatrixAdjusterProps> = ({ unmixedData, matrix, se
     ctx.globalAlpha = 0.6;
     
     for (let i = 0; i < unmixedData.length; i++) {
-        const x = xVals[i];
-        const y = yVals[i];
+        const x = unmixedData[i][xMarker];
+        const y = unmixedData[i][yMarker];
         const px = toPx(x, finalXMin, finalXMax, w);
         const py = h - toPx(y, finalYMin, finalYMax, h);
         ctx.beginPath();
@@ -107,7 +116,7 @@ const MatrixAdjuster: React.FC<MatrixAdjusterProps> = ({ unmixedData, matrix, se
         ctx.fillText(`Aligning...`, dragCurrent.x + 10, dragCurrent.y);
     }
 
-  }, [unmixedData, xMarker, yMarker, isAligning, dragStart, dragCurrent]);
+  }, [unmixedData, bounds, xMarker, yMarker, isAligning, dragStart, dragCurrent]);
 
   // Animation Loop
   useEffect(() => {
