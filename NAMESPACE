@@ -1,3 +1,6 @@
+useDynLib(spectrQC, .registration = TRUE)
+importFrom(Rcpp, evalCpp)
+
 # Core workflow
 export(build_reference_matrix)
 export(calc_residuals)

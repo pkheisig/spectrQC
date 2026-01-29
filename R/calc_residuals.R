@@ -46,19 +46,8 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS",
         }
     } else if (method == "WLS") {
         # Weighted Least Squares (Per-Cell)
-        A <- matrix(0, nrow = n_cells, ncol = n_fluor)
         MMt_inv <- solve(M %*% Mt)
-        
-        for (i in seq_len(n_cells)) {
-            weights_i <- 1 / (pmax(Y[i, ], 0) + background_noise)
-            Wi <- diag(weights_i)
-            MWMt_i <- M %*% Wi %*% Mt
-            if (rcond(MWMt_i) > 1e-10) {
-                A[i, ] <- Y[i, , drop = FALSE] %*% Wi %*% Mt %*% solve(MWMt_i)
-            } else {
-                A[i, ] <- Y[i, , drop = FALSE] %*% Mt %*% MMt_inv
-            }
-        }
+        A <- .Call("_spectrQC_calc_wls_mat_cpp", Y, M, background_noise, MMt_inv, PACKAGE = "spectrQC")
     } else {
         stop("method must be 'OLS', 'NNLS', or 'WLS'")
     }
