@@ -23,12 +23,13 @@ refine_scc_matrix <- function(M,
     
     # Load metadata for labels
     fcs_files <- list.files(scc_dir, pattern = "\\.fcs$", full.names = TRUE)
+    if (length(fcs_files) == 0) stop("No SCC files found in ", scc_dir)
     ff_meta <- flowCore::read.FCS(fcs_files[1], transformation = FALSE, truncate_max_range = FALSE)
     pd <- flowCore::pData(flowCore::parameters(ff_meta))
     
     # Load control_df
-    control_df <- data.table::fread(control_file)
-    custom_map <- stats::setNames(control_df$fluorophore, tools::file_path_sans_ext(control_df$filename))
+    if (!file.exists(control_file)) stop("control_file not found: ", control_file)
+    control_df <- utils::read.csv(control_file, stringsAsFactors = FALSE, check.names = FALSE)
     
     # 1. Refine M
     M_refined <- refine_reference_matrix(M, input_folder = scc_dir, rrmse_threshold = rrmse_threshold, control_df = control_df)
@@ -36,14 +37,24 @@ refine_scc_matrix <- function(M,
     # 2. Derive W (OLS by default for static matrix)
     W_refined <- derive_unmixing_matrix(M_refined, method = "OLS")
     
-    # 3. Save matrices (root directory)
-    data.table::fwrite(as.data.table(M_refined, keep.rownames = "Marker"), "refined_reference_matrix.csv")
-    save_unmixing_matrix(W_refined, "refined_unmixing_matrix.csv")
+    # 3. Save matrices
+    M_refined_df <- as.data.frame(M_refined, check.names = FALSE)
+    M_refined_df$Marker <- rownames(M_refined)
+    M_refined_df <- M_refined_df[, c("Marker", setdiff(colnames(M_refined_df), "Marker")), drop = FALSE]
+    utils::write.csv(M_refined_df, file.path(output_dir, "refined_reference_matrix.csv"), row.names = FALSE, quote = TRUE)
+    save_unmixing_matrix(W_refined, file.path(output_dir, "refined_unmixing_matrix.csv"))
     
-    # 4. Save comparison plots (without PDF report)
+    # 4. Save comparison plots
     message("  - Plotting initial vs refined spectra...")
     p1 <- plot_spectra(M, pd = pd, output_file = file.path(png_dir, "01_spectra_initial.png")) + ggplot2::ggtitle("Initial Spectra")
     p2 <- plot_spectra(M_refined, pd = pd, output_file = file.path(png_dir, "02_spectra_refined.png")) + ggplot2::ggtitle("Refined Spectra (Outliers Removed)")
+    grDevices::pdf(report_file, width = 11, height = 8.5)
+    grid::grid.newpage()
+    grid::grid.text("spectrQC: SCC Refinement Comparison", x = 0.5, y = 0.6, gp = grid::gpar(fontsize = 20))
+    print(p1)
+    print(p2)
+    grDevices::dev.off()
+    message("  - SCC refinement report saved to: ", report_file)
     
     # 5. Unmix SCCs with refined W and save
     message("  - Saving unmixed SCC files (FCS format)...")
@@ -65,4 +76,3 @@ refine_scc_matrix <- function(M,
     
     return(list(M = M_refined, W = W_refined))
 }
-

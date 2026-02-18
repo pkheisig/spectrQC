@@ -1,4 +1,4 @@
-' Create AutoSpectral Control File
+#' Create AutoSpectral Control File
 #' 
 #' Generates the CSV file required by the AutoSpectral package.
 #' 
@@ -144,7 +144,8 @@ get_autospectral_spectra <- function(flow_frame,
 
     # 2. Extract SCC signatures
     message("  - Extracting reference signatures from single-color controls...")
-    M_scc <- build_reference_matrix(input_folder = control_dir, control_df = data.table::fread(control_file))
+    control_df <- utils::read.csv(control_file, stringsAsFactors = FALSE, check.names = FALSE)
+    M_scc <- build_reference_matrix(input_folder = control_dir, control_df = control_df)
     M_scc <- M_scc[, detector_names, drop = FALSE]
 
     # 3. Extract Multi-AF signatures

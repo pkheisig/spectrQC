@@ -3,19 +3,26 @@ refine_reference_matrix <- function(M,
                                    rrmse_threshold = 0.05,
                                    control_df = NULL) {
     library(flowCore)
-    library(data.table)
     
     fcs_files <- list.files(input_folder, pattern = "\\.fcs$", full.names = TRUE)
     if (length(fcs_files) == 0) stop("No SCC files found in ", input_folder)
     
+    get_control_rows <- function(df, filename) {
+        if (is.null(df) || !("filename" %in% colnames(df))) {
+            return(data.frame())
+        }
+        fn <- as.character(df$filename)
+        df[fn == filename, ]
+    }
+
     # We need to find which SCC matches which marker in M
     sample_patterns <- get_fluorophore_patterns()
     
     get_name <- function(sn_ext) {
         sn <- tools::file_path_sans_ext(sn_ext)
         if (!is.null(control_df)) {
-            row_info <- control_df[filename == sn_ext]
-            if (nrow(row_info) == 0) row_info <- control_df[filename == sn]
+            row_info <- get_control_rows(control_df, sn_ext)
+            if (nrow(row_info) == 0) row_info <- get_control_rows(control_df, sn)
             if (nrow(row_info) > 0 && !is.na(row_info$fluorophore[1])) return(row_info$fluorophore[1])
         }
         # Fallback
@@ -58,8 +65,8 @@ refine_reference_matrix <- function(M,
         if (marker_name == "AF") next
         
         # Get info from control_df
-        row_info <- if(!is.null(control_df)) control_df[filename == sn_ext] else data.table()
-        if (!is.null(control_df) && nrow(row_info) == 0) row_info <- control_df[filename == tools::file_path_sans_ext(sn_ext)]
+        row_info <- get_control_rows(control_df, sn_ext)
+        if (nrow(row_info) == 0) row_info <- get_control_rows(control_df, tools::file_path_sans_ext(sn_ext))
         
         message("Refining ", marker_name, " (", sn_ext, ")")
         ff <- read.FCS(f, transformation = FALSE, truncate_max_range = FALSE)

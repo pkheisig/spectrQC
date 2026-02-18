@@ -55,7 +55,7 @@ save_unmixing_matrix <- function(W, file = "unmixing_matrix.csv") {
     W_df <- as.data.frame(W)
     W_df$Marker <- rownames(W)
     W_df <- W_df[, c("Marker", setdiff(colnames(W_df), "Marker"))]
-    data.table::fwrite(W_df, file)
+    utils::write.csv(W_df, file, row.names = FALSE, quote = TRUE)
     message("Unmixing matrix (", nrow(W), "x", ncol(W), ") saved to: ", file)
 }
 

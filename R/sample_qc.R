@@ -12,9 +12,11 @@ generate_sample_qc <- function(unmixed_list,
                               png_dir = "spectrQC_outputs/plots/sample_audit",
                               pd = NULL) {
     dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
+    if (length(unmixed_list) == 0) stop("unmixed_list is empty.")
     
     # Combined data
     all_data <- data.table::rbindlist(lapply(unmixed_list, `[[`, "data"))
+    if (nrow(all_data) == 0) stop("No unmixed data found in unmixed_list.")
     
     # 1. Setup metadata for labels (from first sample if provided)
     
@@ -48,8 +50,15 @@ generate_sample_qc <- function(unmixed_list,
     
     # Page: Detector Residuals
     message("  - Adding residual deconstruction...")
-    p_res <- plot_detector_residuals(unmixed_list[[1]], M = M, top_n = 50, output_file = file.path(png_dir, "03_sample_detector_residuals.png"), pd = pd)
-    print(p_res)
+    residual_idx <- which(vapply(unmixed_list, function(x) {
+        !is.null(x$residuals) && nrow(x$residuals) > 0
+    }, logical(1)))
+    if (length(residual_idx) == 0) {
+        warning("No residual matrices found in unmixed_list. Skipping detector residual plot.")
+    } else {
+        p_res <- plot_detector_residuals(unmixed_list[[residual_idx[1]]], M = M, top_n = 50, output_file = file.path(png_dir, "03_sample_detector_residuals.png"), pd = pd)
+        if (!is.null(p_res)) print(p_res)
+    }
     
     dev.off()
     message("Sample QC Report saved to: ", report_file)

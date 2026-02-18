@@ -32,6 +32,7 @@ export(generate_sample_qc)
 # Matrix refinement
 export(refine_reference_matrix)
 export(refine_scc_matrix)
+export(quick_unmix)
 
 # AutoSpectral interface
 export(create_autospectral_control_file)

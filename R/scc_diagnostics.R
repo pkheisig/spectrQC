@@ -28,11 +28,11 @@ plot_scc_diagnostics <- function(M,
     file_map <- list()
     if (file.exists(control_file)) {
         tryCatch({
-            cdf <- data.table::fread(control_file)
+            cdf <- utils::read.csv(control_file, stringsAsFactors = FALSE, check.names = FALSE)
             if ("fluorophore" %in% colnames(cdf) && "filename" %in% colnames(cdf)) {
                 # Map Fluorophore -> Filename
                 # Handle duplicates by taking the first one
-                valid_cdf <- cdf[fluorophore != "" & !is.na(fluorophore)]
+                valid_cdf <- cdf[cdf$fluorophore != "" & !is.na(cdf$fluorophore), ]
                 file_map <- split(valid_cdf$filename, valid_cdf$fluorophore)
             }
         }, error = function(e) message("Warning: Could not read control file: ", e$message))
@@ -131,7 +131,7 @@ plot_scc_diagnostics <- function(M,
     ), by = Marker]
     
     if (!is.null(output_folder)) {
-        fwrite(summary, file.path(output_folder, "scc_qc_summary.csv"))
+        utils::write.csv(as.data.frame(summary), file.path(output_folder, "scc_qc_summary.csv"), row.names = FALSE, quote = TRUE)
     }
     
     return(p)

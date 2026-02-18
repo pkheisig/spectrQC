@@ -2,7 +2,6 @@
 # API for the spectrQC Interactive Tuner (Adjustment/Crosstalk Correction)
 
 library(plumber)
-library(data.table)
 library(flowCore)
 # spectrQC must be loaded via devtools::load_all() before running this API
 
@@ -48,7 +47,7 @@ function(filename) {
         return(list(error = paste("File not found:", path)))
     }
 
-    df <- fread(path)
+    df <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
 
     # Check if it's a spillover/reference matrix (M) or unmixing matrix (W)
     # Reference/Spillover usually has Markers as rows, Detectors as cols
@@ -60,11 +59,11 @@ function(filename) {
     # Ensure the first column is named 'Marker' for the frontend
     # If the CSV has a header but first col is unnamed or "V1", fix it
     if (colnames(df)[1] %in% c("V1", "")) {
-        setnames(df, colnames(df)[1], "Marker")
+        colnames(df)[1] <- "Marker"
     } else if (colnames(df)[1] != "Marker") {
         # Assume first column is Marker if it contains strings
         if (is.character(df[[1]])) {
-            setnames(df, colnames(df)[1], "Marker")
+            colnames(df)[1] <- "Marker"
         }
     }
     return(df)
@@ -76,9 +75,9 @@ function(req) {
     body <- jsonlite::fromJSON(req$postBody)
     filename <- body$filename
     matrix_data <- body$matrix_json
-    dt <- as.data.table(matrix_data)
+    df <- as.data.frame(matrix_data, check.names = FALSE)
     path <- file.path("../..", filename)
-    fwrite(dt, path)
+    utils::write.csv(df, path, row.names = FALSE, quote = TRUE)
     return(list(success = TRUE, path = path))
 }
 

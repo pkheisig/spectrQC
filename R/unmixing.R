@@ -1,20 +1,11 @@
 #' Unmix Experimental Samples
 #' 
-#' Performs unmixing on all samples in a folder using the refined matrix.
-#' 
-#' @param sample_dir Folder with experimental FCS files.
-#' @param M Refined reference matrix.
-#' @param method Unmixing method ("OLS", "WLS", or "NNLS").
-#' @param output_dir Folder to save unmixed CSV files.
-#' @return A list of unmixed data frames.
-#' @export
-#' Unmix Experimental Samples
-#' 
 #' @param sample_dir Directory containing experimental FCS files.
 #' @param M Reference matrix (Markers x Detectors).
 #' @param method Unmixing method ("WLS", "OLS", "NNLS", or "AutoSpectral").
-#' @param output_dir Directory to save unmixed CSV files.
-#' @return A list of unmixed results.
+#' @param output_dir Directory to save unmixed FCS files.
+#' @return A named list with one element per sample. Each element contains
+#'   `data` (unmixed abundances + QC metrics) and `residuals` (detector residual matrix).
 #' @export
 unmix_samples <- function(sample_dir = "samples", 
                           M = NULL, 
@@ -26,6 +17,37 @@ unmix_samples <- function(sample_dir = "samples",
     if (length(fcs_files) == 0) stop("No FCS files found in ", sample_dir)
     if (is.null(M)) stop("Reference Matrix M must be provided for unmixing.")
 
+    method_upper <- toupper(method)
+    allowed_methods <- c("WLS", "OLS", "NNLS", "AUTOSPECTRAL")
+    if (!(method_upper %in% allowed_methods)) {
+        stop("method must be one of: ", paste(allowed_methods, collapse = ", "))
+    }
+
+    build_result_from_unmixed <- function(flow_frame, M_sub, abundances, file_name) {
+        full_data <- flowCore::exprs(flow_frame)
+        detectors <- colnames(M_sub)
+        Y <- full_data[, detectors, drop = FALSE]
+        fitted <- abundances %*% M_sub
+        residuals <- Y - fitted
+
+        rmse <- sqrt(rowMeans(residuals^2))
+        relative_rmse <- rmse / pmax(rowSums(Y), 1)
+
+        out <- as.data.frame(abundances)
+        colnames(out) <- rownames(M_sub)
+        out$RMSE_Score <- rmse
+        out$Relative_RMSE <- relative_rmse
+
+        all_cols <- colnames(full_data)
+        fsc_col <- grep("^FSC[0-9]*-A$", all_cols, value = TRUE)[1]
+        ssc_col <- grep("^SSC[0-9]*-A$", all_cols, value = TRUE)[1]
+        if (!is.na(fsc_col)) out[["FSC-A"]] <- full_data[, fsc_col]
+        if (!is.na(ssc_col)) out[["SSC-A"]] <- full_data[, ssc_col]
+        out$File <- file_name
+
+        list(data = out, residuals = residuals)
+    }
+
     results <- list()
     for (f in fcs_files) {
         sn <- tools::file_path_sans_ext(basename(f))
@@ -33,39 +55,43 @@ unmix_samples <- function(sample_dir = "samples",
         ff <- flowCore::read.FCS(f, transformation = FALSE, truncate_max_range = FALSE)
         
         # Select unmixing math engine
-        if (toupper(method) == "AUTOSPECTRAL") {
+        if (method_upper == "AUTOSPECTRAL") {
             if (!requireNamespace("AutoSpectral", quietly = TRUE)) {
                 warning("AutoSpectral package not found. Falling back to internal WLS.")
-                res <- calc_residuals(ff, M, method = "WLS", file_name = sn)
+                res_obj <- calc_residuals(ff, M, method = "WLS", file_name = sn, return_residuals = TRUE)
             } else {
                 # Use AutoSpectral WLS math engine directly with our refined matrix M
                 raw_data <- flowCore::exprs(ff)
-                detectors <- intersect(colnames(raw_data), colnames(M))
+                detectors <- colnames(M)
+                missing <- setdiff(detectors, colnames(raw_data))
+                if (length(missing) > 0) {
+                    stop("Detectors in reference matrix not found in sample '", sn, "': ", paste(missing, collapse = ", "))
+                }
                 Y <- raw_data[, detectors, drop = FALSE]
                 signatures <- M[, detectors, drop = FALSE]
                 
                 # AutoSpectral unmix.wls
                 unmixed_data <- AutoSpectral::unmix.wls(Y, signatures)
-                
-                # Still use calc_residuals to generate the full audit structure (RRMSE, etc)
-                # as AutoSpectral unmix.wls returns a pure matrix.
-                res <- calc_residuals(ff, M, method = "WLS", file_name = sn)
+                abundances <- as.matrix(unmixed_data)
+                colnames(abundances) <- rownames(signatures)
+                res_obj <- build_result_from_unmixed(ff, signatures, abundances, sn)
             }
         } else {
-            res <- calc_residuals(ff, M, method = method, file_name = sn)
+            res_obj <- calc_residuals(ff, M, method = method_upper, file_name = sn, return_residuals = TRUE)
         }
         
         # Save results as FCS instead of CSV
-        markers_to_keep <- intersect(colnames(res), rownames(M))
-        scatter_cols <- grep("FSC|SSC", colnames(res), value = TRUE)
-        unmixed_exprs <- as.matrix(res[, c(markers_to_keep, scatter_cols)])
+        markers_to_keep <- intersect(colnames(res_obj$data), rownames(M))
+        scatter_cols <- grep("FSC|SSC", colnames(res_obj$data), value = TRUE)
+        cols_to_write <- c(markers_to_keep, scatter_cols)
+        unmixed_exprs <- as.matrix(res_obj$data[, cols_to_write, drop = FALSE])
         
         new_ff <- flowCore::flowFrame(unmixed_exprs)
         # Copy keywords from original if possible (optional but good practice)
         new_ff@description <- ff@description
         
         flowCore::write.FCS(new_ff, file.path(output_dir, paste0(sn, "_unmixed.fcs")))
-        results[[sn]] <- list(data = res)
+        results[[sn]] <- res_obj
     }
     
     return(results)

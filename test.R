@@ -10,13 +10,13 @@ devtools::load_all()
 # Saves gating plots and spectrum overlays to output_dir.
 
 # Load control file (optional but recommended for accurate fluorophore/channel mapping)
-control_df <- data.table::fread("fcs_control_file.csv")
+control_df <- read.csv("fcs_control_file.csv", stringsAsFactors = FALSE, check.names = FALSE)
 
 # Build reference matrix from SCC FCS files
 M_initial <- build_reference_matrix(
     input_folder = "scc", # Directory containing SCC FCS files
     output_folder = "gating_and_spectrum_plots", # Output folder for gating/spectrum plots
-    control_df = control_df, # Optional: data.table with filename, fluorophore, channel columns
+    control_df = control_df, # Optional: data.frame with filename, fluorophore, channel columns
     include_multi_af = FALSE, # Include extra AF signatures from af_dir
     af_dir = "af", # Directory for extra AF files
     default_sample_type = "beads", # Default sample type: "beads" or "cells"

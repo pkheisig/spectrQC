@@ -70,7 +70,7 @@ Extract spectral signatures from single-color controls:
 library(spectrQC)
 
 # Load control file (optional but recommended)
-control_df <- data.table::fread("fcs_control_file.csv")
+control_df <- read.csv("fcs_control_file.csv", stringsAsFactors = FALSE, check.names = FALSE)
 
 # Build reference matrix
 M <- build_reference_matrix(

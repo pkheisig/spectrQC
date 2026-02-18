@@ -53,6 +53,59 @@ Or create manually with columns: `filename`, `fluorophore`, `channel`, `universa
 
 ## Workflow
 
+### Typical Sequence (Field-Friendly)
+
+You usually follow one of these two paths:
+
+#### Path A: Fast SCC Check (`quick_unmix`)
+
+Use this when you want a quick SCC-only run (build matrix, SCC plots, SCC unmixing, unmixing matrix plot):
+
+```r
+library(spectrQC)
+control_df <- read.csv("fcs_control_file.csv", stringsAsFactors = FALSE, check.names = FALSE)
+
+quick_unmix(
+  scc_dir = "scc",
+  control_df = control_df,
+  output_dir = "spectrQC_outputs/quick_unmix",
+  unmix_method = "WLS",
+  build_qc_plots = TRUE
+)
+```
+
+#### Path B: Full Production Workflow (with optional GUI adjustment)
+
+1. Build reference matrix from SCCs.
+2. If needed, open GUI and adjust matrix values.
+3. Save adjusted matrix CSV from GUI.
+4. Load adjusted matrix, then unmix experimental samples.
+5. Generate sample QC report.
+
+**After GUI adjustment, continue with:**
+
+```r
+# Read adjusted matrix CSV exported from GUI
+M_adj_df <- read.csv("reference_matrix_adjusted.csv", stringsAsFactors = FALSE, check.names = FALSE)
+M_adj <- as.matrix(M_adj_df[, -1, drop = FALSE])
+rownames(M_adj) <- M_adj_df[[1]]
+
+# Unmix experimental samples with adjusted matrix
+unmixed <- unmix_samples(
+  sample_dir = "samples",
+  M = M_adj,
+  method = "WLS",
+  output_dir = "samples_unmixed"
+)
+
+# QC report
+generate_sample_qc(
+  unmixed_list = unmixed,
+  M = M_adj,
+  report_file = "Experimental_Sample_Audit.pdf"
+)
+```
+
 ### Step 1: Build Reference Matrix
 
 Extract spectral signatures from single-color controls:
@@ -61,7 +114,7 @@ Extract spectral signatures from single-color controls:
 library(spectrQC)
 
 # Load control file (optional but recommended)
-control_df <- data.table::fread("fcs_control_file.csv")
+control_df <- read.csv("fcs_control_file.csv", stringsAsFactors = FALSE, check.names = FALSE)
 
 # Build reference matrix from SCC files
 M <- build_reference_matrix(
@@ -182,6 +235,13 @@ launch_gui(
 ```
 
 This starts both the backend API and frontend automatically, opening http://localhost:5174 in your browser.
+
+### What To Do After GUI
+
+1. Save your adjusted matrix as a CSV (for example `reference_matrix_adjusted.csv`).
+2. Load that CSV in R and convert to a matrix (`rownames = first column`).
+3. Run `unmix_samples(...)` on your experimental samples using the adjusted matrix.
+4. Run `generate_sample_qc(...)` for the final audit report.
 
 ---
 

@@ -28,6 +28,22 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS",
     
     method <- toupper(method)
 
+    safe_inverse <- function(mat, tol = 1e-10) {
+        if (rcond(mat) > tol) {
+            return(solve(mat))
+        }
+        sv <- svd(mat)
+        if (length(sv$d) == 0 || max(sv$d) == 0) {
+            return(matrix(0, nrow = nrow(mat), ncol = ncol(mat)))
+        }
+        keep <- sv$d > (max(sv$d) * tol)
+        if (!any(keep)) {
+            return(matrix(0, nrow = nrow(mat), ncol = ncol(mat)))
+        }
+        sv$v[, keep, drop = FALSE] %*%
+            (diag(1 / sv$d[keep], nrow = sum(keep)) %*% t(sv$u[, keep, drop = FALSE]))
+    }
+
     if (method == "OLS") {
         # Ordinary Least Squares: A = Y * M^T * (M * M^T)^-1
         matrix_to_invert <- M %*% Mt
@@ -47,7 +63,8 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS",
     } else if (method == "WLS") {
         # Weighted Least Squares (Per-Cell)
         A <- matrix(0, nrow = n_cells, ncol = n_fluor)
-        MMt_inv <- solve(M %*% Mt)
+        MMt <- M %*% Mt
+        MMt_inv <- safe_inverse(MMt)
         
         for (i in seq_len(n_cells)) {
             weights_i <- 1 / (pmax(Y[i, ], 0) + background_noise)
