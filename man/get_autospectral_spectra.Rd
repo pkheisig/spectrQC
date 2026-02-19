@@ -34,6 +34,7 @@ Extracts SCC signatures using internal logic and optional AF signatures from
 the `af/` folder, then combines them for downstream unmixing.
 }
 \examples{
+args(get_autospectral_spectra)
 \dontrun{
 ff <- flowCore::read.FCS("samples/Sample1.fcs", transformation = FALSE)
 M_auto <- get_autospectral_spectra(

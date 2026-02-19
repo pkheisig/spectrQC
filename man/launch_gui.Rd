@@ -28,6 +28,7 @@ Starts the backend Plumber API for the interactive matrix adjustment interface.
 The frontend must be started separately by running 'npm run dev' in the gui folder.
 }
 \examples{
+args(launch_gui)
 \dontrun{
 # Start the API with default directories
 launch_gui()

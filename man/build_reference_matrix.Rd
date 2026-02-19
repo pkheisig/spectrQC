@@ -83,6 +83,7 @@ then computes one normalized spectrum per fluorophore.
 This is the core matrix-construction step used before unmixing.
 }
 \examples{
+args(build_reference_matrix)
 \dontrun{
 # Build matrix from SCC folder and control CSV
 M <- build_reference_matrix(

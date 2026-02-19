@@ -15,3 +15,11 @@ A list with [[names]] (FL...) and [[labels]] (405nm - 420/10) sorted by laser.
 \description{
 Get Sorted Detectors by Laser and Wavelength
 }
+\examples{
+pd <- data.frame(
+  name = c("FSC-A", "V1-A", "B2-A", "R1-A"),
+  desc = c("FSC-A", "405 nm 450/50", "488 nm 530/30", "640 nm 670/30"),
+  stringsAsFactors = FALSE
+)
+get_sorted_detectors(pd)$names
+}

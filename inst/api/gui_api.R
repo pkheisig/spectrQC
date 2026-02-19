@@ -1,9 +1,14 @@
 # gui_api_adjust.R
 # API for the spectrQC Interactive Tuner (Adjustment/Crosstalk Correction)
 
-library(plumber)
-library(flowCore)
-# spectrQC must be loaded via devtools::load_all() before running this API
+get_matrix_dir <- function() {
+    normalizePath(getOption("spectrqc.matrix_dir", getwd()), mustWork = FALSE)
+}
+
+get_samples_dir <- function() {
+    default_samples <- file.path(get_matrix_dir(), "samples")
+    normalizePath(getOption("spectrqc.samples_dir", default_samples), mustWork = FALSE)
+}
 
 #* @filter logger
 function(req) {
@@ -26,14 +31,13 @@ function(req, res) {
 #* Health Check
 #* @get /status
 function() {
-    return(list(status = "ok", time = Sys.time(), wd = getwd()))
+    return(list(status = "ok", time = Sys.time(), wd = getwd(), matrix_dir = get_matrix_dir()))
 }
 
 #* List available matrices
 #* @get /matrices
 function() {
-    # Look in the project root (two levels up from inst/api)
-    files <- list.files("../..", pattern = ".*\\.csv$")
+    files <- list.files(get_matrix_dir(), pattern = ".*\\.csv$")
     # Return all CSVs
     return(as.character(files))
 }
@@ -42,7 +46,7 @@ function() {
 #* @get /load_matrix
 #* @param filename
 function(filename) {
-    path <- file.path("../..", filename)
+    path <- file.path(get_matrix_dir(), filename)
     if (!file.exists(path)) {
         return(list(error = paste("File not found:", path)))
     }
@@ -76,7 +80,7 @@ function(req) {
     filename <- body$filename
     matrix_data <- body$matrix_json
     df <- as.data.frame(matrix_data, check.names = FALSE)
-    path <- file.path("../..", filename)
+    path <- file.path(get_matrix_dir(), filename)
     utils::write.csv(df, path, row.names = FALSE, quote = TRUE)
     return(list(success = TRUE, path = path))
 }
@@ -95,7 +99,7 @@ function(path) {
         return(list(error = paste("File not found:", path)))
     }
     filename <- basename(path)
-    dest <- file.path("../..", filename)
+    dest <- file.path(get_matrix_dir(), filename)
     file.copy(path, dest, overwrite = TRUE)
     return(list(success = TRUE, filename = filename))
 }
@@ -111,7 +115,7 @@ function(res) {
 #* @param filename The filename
 #* @param content The CSV content as text
 function(filename, content) {
-    dest <- file.path("../..", filename)
+    dest <- file.path(get_matrix_dir(), filename)
     writeLines(content, dest)
     return(list(success = TRUE, filename = filename))
 }
@@ -121,23 +125,24 @@ function(filename, content) {
 #* @param sample_name The name of the sample to load
 function(sample_name = NULL) {
     # If no sample provided, take the first one in samples/
-    files <- list.files("../../samples", pattern = "fcs", full.names = TRUE)
+    samples_dir <- get_samples_dir()
+    files <- list.files(samples_dir, pattern = "\\.fcs$", full.names = TRUE)
     if (length(files) == 0) {
-        return(list(error = "No FCS files found in samples/"))
+        return(list(error = paste0("No FCS files found in samples directory: ", samples_dir)))
     }
 
     if (is.null(sample_name)) {
         sample_path <- files[1]
     } else {
-        sample_path <- file.path("../../samples", paste0(sample_name, ".fcs"))
+        sample_path <- file.path(samples_dir, paste0(sample_name, ".fcs"))
     }
 
     if (!file.exists(sample_path)) {
         return(list(error = paste("Sample not found:", sample_path)))
     }
 
-    ff <- read.FCS(sample_path, transformation = FALSE, truncate_max_range = FALSE)
-    raw_data <- exprs(ff)
+    ff <- flowCore::read.FCS(sample_path, transformation = FALSE, truncate_max_range = FALSE)
+    raw_data <- flowCore::exprs(ff)
 
     # Subsample for speed - smaller for fast interactive updates
     n_sub <- 2000
@@ -146,12 +151,12 @@ function(sample_name = NULL) {
         raw_data <- raw_data[sample(nrow(raw_data), n_sub), ]
     }
 
-    pd <- pData(parameters(ff))
+    pd <- flowCore::pData(flowCore::parameters(ff))
     # Helper to get sorted detectors (copying logic from spectrQC if not exported)
     # Assuming spectrQC is loaded or we implement basic logic
     det_info <- tryCatch(
         {
-            spectrQC:::get_sorted_detectors(pd)
+            spectrQC::get_sorted_detectors(pd)
         },
         error = function(e) {
             # Fallback if function not accessible

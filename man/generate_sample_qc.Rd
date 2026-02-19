@@ -30,6 +30,7 @@ Invisibly returns `NULL`; writes plots and PDF report to disk.
 Produces RRMSE scatter plots and individual file diagnostics for unmixed experimental samples.
 }
 \examples{
+args(generate_sample_qc)
 \dontrun{
 generate_sample_qc(
   unmixed_list = unmixed,

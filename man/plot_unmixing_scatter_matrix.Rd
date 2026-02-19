@@ -42,6 +42,7 @@ Each populated panel uses events from only one single-stain file (row stain),
 while the column stain is permuted across the lower triangle.
 }
 \examples{
+args(plot_unmixing_scatter_matrix)
 \dontrun{
 plot_unmixing_scatter_matrix(
   unmixed_list = unmixed_list,

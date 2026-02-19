@@ -31,6 +31,7 @@ Generates RRMSE distribution plots for each single-color control.
 This helps the user decide on an appropriate RRMSE cutoff for refinement.
 }
 \examples{
+args(plot_scc_diagnostics)
 \dontrun{
 p <- plot_scc_diagnostics(
   M = M,

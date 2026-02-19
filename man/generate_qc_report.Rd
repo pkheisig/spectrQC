@@ -34,6 +34,7 @@ Creates a multi-page report summarizing unmixing quality, including spectra,
 detector residuals, spread matrix, RRMSE scatter plots, NPS, and correlation panels.
 }
 \examples{
+args(generate_qc_report)
 \dontrun{
 # results_df <- data.table::rbindlist(lapply(unmixed_list, `[[`, "data"))
 generate_qc_report(

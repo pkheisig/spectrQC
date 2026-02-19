@@ -45,6 +45,7 @@ Produces per-file FSC/SSC scatter panels colored by `RMSE_Score` or
 specific morphological regions.
 }
 \examples{
+args(plot_scatter_rmse)
 \dontrun{
 p <- plot_scatter_rmse(
   data = results_df,

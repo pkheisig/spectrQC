@@ -34,6 +34,7 @@ Data frame with unmixed abundances, RMSE, Relative_RMSE, and scatter parameters.
 Calculate unmixing residuals
 }
 \examples{
+args(calc_residuals)
 \dontrun{
 ff <- flowCore::read.FCS("samples/Sample1.fcs", transformation = FALSE)
 res <- calc_residuals(

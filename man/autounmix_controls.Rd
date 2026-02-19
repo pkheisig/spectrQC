@@ -61,6 +61,7 @@ This function is intended as the control-stage step before GUI adjustment
 and downstream sample unmixing.
 }
 \examples{
+args(autounmix_controls)
 \dontrun{
 ctrl <- autounmix_controls(
   scc_dir = "scc",

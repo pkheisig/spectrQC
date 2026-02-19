@@ -28,6 +28,7 @@ Reprocesses SCC files against an initial matrix `M`, removes high-RRMSE events,
 and recomputes cleaner marker spectra.
 }
 \examples{
+args(refine_reference_matrix)
 \dontrun{
 M_refined <- refine_reference_matrix(
   M = M,

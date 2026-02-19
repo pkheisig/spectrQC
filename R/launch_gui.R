@@ -47,8 +47,10 @@ launch_gui <- function(matrix_dir = getwd(), samples_dir = NULL, port = 8000, op
     if (is.null(samples_dir)) samples_dir <- file.path(matrix_dir, "samples")
     samples_dir <- normalizePath(samples_dir, mustWork = FALSE)
 
-    Sys.setenv(SPECTRQC_MATRIX_DIR = matrix_dir)
-    Sys.setenv(SPECTRQC_SAMPLES_DIR = samples_dir)
+    options(
+        spectrqc.matrix_dir = matrix_dir,
+        spectrqc.samples_dir = samples_dir
+    )
 
     message("Starting frontend (npm run dev)...")
     old_wd <- getwd()

@@ -37,6 +37,7 @@ Identifies which detectors contribute most to the unmixing error for high-RRMSE 
 Overlays the reference signatures to help identify the source of the mismatch.
 }
 \examples{
+args(plot_detector_residuals)
 \dontrun{
 p <- plot_detector_residuals(res_list[[1]], M, top_n = 50)
 print(p)

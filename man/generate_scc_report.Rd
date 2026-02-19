@@ -33,6 +33,7 @@ Invisibly returns `NULL`; writes SCC audit PDF and PNG panels.
 Generate SCC QC Report
 }
 \examples{
+args(generate_scc_report)
 \dontrun{
 generate_scc_report(
   M = M,

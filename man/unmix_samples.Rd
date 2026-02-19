@@ -46,6 +46,7 @@ A named list with one element per sample. Each element contains
 Unmix Experimental Samples
 }
 \examples{
+args(unmix_samples)
 \dontrun{
 unmixed <- unmix_samples(
   sample_dir = "samples",

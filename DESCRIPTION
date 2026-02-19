@@ -1,8 +1,10 @@
 Package: spectrQC
 Title: Full Spectrum Flow Cytometry QC & Unmixing
-Version: 0.1.0
-Authors@R: person("Paul Heisig", email = "p.k.s.heisig@amsterdamumc.nl", role = c("aut", "cre"))
+Version: 0.99.0
+Authors@R: person("Paul Heisig", email = "pkheisig@gmail.com", role = c("aut", "cre"))
 Description: Validate spectral flow cytometry data by calculating unmixing residuals.
+URL: https://github.com/pkheisig/spectrQC
+BugReports: https://github.com/pkheisig/spectrQC/issues
 License: MIT + file LICENSE
 Depends: R (>= 4.1.0)
 Imports:
@@ -19,7 +21,10 @@ Imports:
 Suggests:
     AutoSpectral,
     knitr,
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
+biocViews: FlowCytometry, QualityControl, Visualization, GUI, WorkflowStep
+Config/testthat/edition: 3
 Encoding: UTF-8
 RoxygenNote: 7.3.3

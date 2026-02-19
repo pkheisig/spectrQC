@@ -250,9 +250,17 @@ For manual fine-tuning, use the web interface.
 ### First-time setup (once):
 
 ```bash
-# From the spectrQC package directory
-cd gui
+# If you are in a source checkout of spectrQC:
+cd inst/gui
 npm install
+```
+
+Or from any R session, resolve the installed GUI path and install once:
+
+```r
+gui_path <- system.file("gui", package = "spectrQC")
+cat(gui_path, "\n")
+# Then in terminal: cd <that path> && npm install
 ```
 
 ### Launch the GUI:
@@ -325,4 +333,4 @@ Unmixed intensity vs RRMSE for each marker.
 ---
 
 **Author**: Paul Heisig  
-**Email**: p.k.s.heisig@amsterdamumc.nl
+**Email**: pkheisig@gmail.com

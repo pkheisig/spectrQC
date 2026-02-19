@@ -37,6 +37,7 @@ Cleans SCCs using an RRMSE threshold, produces refined M and W,
 and generates a before/after comparison report.
 }
 \examples{
+args(refine_scc_matrix)
 \dontrun{
 refined <- refine_scc_matrix(
   M = M,

@@ -51,6 +51,7 @@ Ideally, the line should be flat or decreasing. A sharp upward trend indicates
 detector non-linearity or spectral mismatch for that specific fluorophore.
 }
 \examples{
+args(plot_marker_correlations)
 \dontrun{
 p <- plot_marker_correlations(
   data = results_df,
