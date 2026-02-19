@@ -67,80 +67,66 @@ Logic:
 
 You usually follow one of these two paths:
 
-#### Path A: Fast SCC Check (`quick_unmix`)
+#### Path A: Recommended Split Workflow
 
-Use this when you want a quick SCC-only run (build matrix, SCC plots, SCC unmixing, unmixing matrix plot):
+1) Run controls with `autounmix_controls()`:
 
 ```r
 library(spectrQC)
 
-quick_unmix(
+ctrl <- autounmix_controls(
   scc_dir = "scc",
   control_file = "fcs_control_file.csv",
   auto_create_control = TRUE,
   cytometer = "Aurora",
   auto_unknown_fluor_policy = "by_channel",
-  output_dir = "spectrQC_outputs/quick_unmix",
+  output_dir = "spectrQC_outputs/autounmix_controls",
   unmix_method = "WLS",
   build_qc_plots = TRUE,
   unmix_scatter_panel_size_mm = 30
 )
 ```
 
-If `fcs_control_file.csv` is missing and `auto_create_control = TRUE`, `quick_unmix()` auto-generates a control file (filename, marker, fluorophore, and detected peak channel), then asks for confirmation before continuing.
+If `fcs_control_file.csv` is missing and `auto_create_control = TRUE`, `autounmix_controls()` auto-generates a control file (filename, marker, fluorophore, and detected peak channel), then asks for confirmation before continuing.
 `cytometer` is used for channel-aware fluorophore inference via the AutoSpectral fluorophore database.
 
 For newly auto-created files:
 - `control.type` is set to `cells` only for AF rows; all non-AF rows are left empty on purpose
 - `universal.negative` is left empty by default for all rows
-- `quick_unmix()` pauses and asks for `y/n` confirmation so you can review/edit the file first
+- `autounmix_controls()` pauses and asks for `y/n` confirmation so you can review/edit the file first
 
-`quick_unmix()` writes:
+`autounmix_controls()` writes:
+- `scc_reference_matrix.csv`
 - `scc_spectra.png` (reference spectra overlay)
 - `scc_unmixing_matrix.png` and `scc_unmixing_matrix.csv`
 - `scc_unmixing_scatter_matrix.png` (lower-triangle scatter matrix, one single-stain file per row, with x=0/y=0 guides)
 
 Set `unmix_scatter_panel_size_mm` higher (for example `40`) if you want larger per-panel scatter plots.
 
-`quick_unmix()` also runs a strict preflight check before processing:
+`autounmix_controls()` also runs a strict preflight check before processing:
 - every SCC file must be mapped in `fcs_control_file.csv`
 - non-AF rows must define a valid `channel`
 - if `universal.negative` is present, values for active SCC rows must be empty/keyword or reference a file present in your selected SCC/AF directories
 
-If preflight fails, fix the listed rows and rerun. A common fix is to point `universal.negative` to your in-folder unstained control file.
-
-#### Path B: Full Production Workflow (with optional GUI adjustment)
-
-1. Build reference matrix from SCCs.
-2. If needed, open GUI and adjust matrix values.
-3. Save adjusted matrix CSV from GUI.
-4. Load adjusted matrix, then unmix experimental samples.
-5. Generate sample QC report.
-
-**After GUI adjustment, continue with:**
+2) Optional: adjust matrix in GUI (between controls and samples), then unmix samples:
 
 ```r
-# Read adjusted matrix CSV exported from GUI
-M_adj_df <- read.csv("reference_matrix_adjusted.csv", stringsAsFactors = FALSE, check.names = FALSE)
-M_adj <- as.matrix(M_adj_df[, -1, drop = FALSE])
-rownames(M_adj) <- M_adj_df[[1]]
-
-# Unmix experimental samples with adjusted matrix
+# Uses saved unmixing matrix by filepath (default points to autounmix_controls output)
 unmixed <- unmix_samples(
   sample_dir = "samples",
-  M = M_adj,
-  method = "WLS",
-  cytometer = "Aurora",
+  unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
   output_dir = "samples_unmixed"
 )
 
 # QC report
 generate_sample_qc(
   unmixed_list = unmixed,
-  M = M_adj,
+  M = ctrl$M,
   report_file = "Experimental_Sample_Audit.pdf"
 )
 ```
+
+`quick_unmix()` is kept as a compatibility alias and now calls `autounmix_controls()`.
 
 ### Step 1: Build Reference Matrix
 
@@ -221,12 +207,20 @@ This exports `refined_reference_matrix.csv` and `refined_unmixing_matrix.csv`.
 Apply the refined matrix to your samples:
 
 ```r
+# Option 1: dynamic unmixing directly from reference matrix (M)
 unmixed <- unmix_samples(
   sample_dir = "samples",
   M = M_final,
   method = "WLS",                     # "OLS", "WLS", or "NNLS"
   cytometer = "Aurora",
   output_dir = "samples_unmixed"
+)
+
+# Option 2: static unmixing from saved unmixing matrix (W)
+unmixed_w <- unmix_samples(
+  sample_dir = "samples",
+  unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
+  output_dir = "samples_unmixed_w"
 )
 ```
 
@@ -276,10 +270,11 @@ This starts both the backend API and frontend automatically, opening http://loca
 
 ### What To Do After GUI
 
-1. Save your adjusted matrix as a CSV (for example `reference_matrix_adjusted.csv`).
-2. Load that CSV in R and convert to a matrix (`rownames = first column`).
-3. Run `unmix_samples(...)` on your experimental samples using the adjusted matrix.
-4. Run `generate_sample_qc(...)` for the final audit report.
+1. Save your adjusted matrix CSV (typically `scc_unmixing_matrix.csv` or `scc_reference_matrix.csv`).
+2. Run `unmix_samples(...)` on your experimental samples:
+   - if you edited `scc_unmixing_matrix.csv`, pass `unmixing_matrix_file = "..."`
+   - if you edited a reference matrix, load it as `M` and pass `M = ...`
+3. Run `generate_sample_qc(...)` for the final audit report.
 
 ---
 

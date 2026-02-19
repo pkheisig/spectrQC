@@ -33,6 +33,7 @@ export(generate_sample_qc)
 # Matrix refinement
 export(refine_reference_matrix)
 export(refine_scc_matrix)
+export(autounmix_controls)
 export(quick_unmix)
 export(validate_control_file_mapping)
 

@@ -7,25 +7,40 @@
 unmix_samples(
   sample_dir = "samples",
   M = NULL,
+  W = NULL,
+  unmixing_matrix_file = file.path("spectrQC_outputs", "autounmix_controls",
+    "scc_unmixing_matrix.csv"),
   method = "WLS",
   cytometer = "Aurora",
-  output_dir = "samples_unmixed"
+  output_dir = "samples_unmixed",
+  write_fcs = TRUE
 )
 }
 \arguments{
 \item{sample_dir}{Directory containing experimental FCS files.}
 
-\item{M}{Reference matrix (Markers x Detectors).}
+\item{M}{Optional reference matrix (Markers x Detectors). Required for
+dynamic unmixing methods (`"WLS"`, `"OLS"`, `"NNLS"`, `"AutoSpectral"`).}
+
+\item{W}{Optional static unmixing matrix (Markers x Detectors). If supplied,
+unmixing is performed using matrix multiplication with the transposed W.}
+
+\item{unmixing_matrix_file}{Optional CSV path to a saved unmixing matrix.
+Used when `W` is not supplied. By default this points to the matrix produced
+by [autounmix_controls()].}
 
 \item{method}{Unmixing method ("WLS", "OLS", "NNLS", or "AutoSpectral").}
 
 \item{cytometer}{Cytometer name used when `method = "AutoSpectral"` (for example `"Aurora"`).}
 
 \item{output_dir}{Directory to save unmixed FCS files.}
+
+\item{write_fcs}{Logical; if `TRUE`, write unmixed FCS files to `output_dir`.}
 }
 \value{
 A named list with one element per sample. Each element contains
-  `data` (unmixed abundances + QC metrics) and `residuals` (detector residual matrix).
+  `data` (unmixed abundances + QC metrics when available) and `residuals`
+  (detector residual matrix, `NULL` if no reference matrix is available).
 }
 \description{
 Unmix Experimental Samples
@@ -34,8 +49,7 @@ Unmix Experimental Samples
 \dontrun{
 unmixed <- unmix_samples(
   sample_dir = "samples",
-  M = M,
-  method = "WLS",
+  unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
   output_dir = "samples_unmixed"
 )
 names(unmixed)
