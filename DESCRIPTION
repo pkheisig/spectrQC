@@ -9,4 +9,4 @@ License: MIT
 Depends: flowCore, ggplot2, dplyr, tidyr, data.table, mclust, sp, scales, nnls
 Suggests: AutoSpectral
 Encoding: UTF-8
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.3

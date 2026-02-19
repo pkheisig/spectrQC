@@ -6,7 +6,19 @@
 #' @param M Initial reference matrix
 #' @param input_folder SCC folder
 #' @param output_folder Folder to save diagnostic plots
-#' @param custom_fluorophores Custom mapping
+#' @param control_file Optional control mapping CSV used for SCC-to-marker matching.
+#' @param custom_fluorophores Optional custom marker mapping.
+#' @return A `ggplot` object.
+#' @examples
+#' \dontrun{
+#' p <- plot_scc_diagnostics(
+#'   M = M,
+#'   input_folder = "scc",
+#'   output_folder = "spectrQC_outputs/plots/scc_diagnostics",
+#'   control_file = "fcs_control_file.csv"
+#' )
+#' print(p)
+#' }
 #' @export
 plot_scc_diagnostics <- function(M, 
                                 input_folder = "scc", 

@@ -1,9 +1,15 @@
 #' Gating options
 #'
-#' @param histogram_pct_beads Percentage of beads to gate in histogram
-#' @param histogram_direction_beads Direction to gate beads ("both", "left", "right")
-#' @param histogram_pct_cells Percentage of cells to gate in histogram
-#' @param histogram_direction_cells Direction to gate cells ("both", "left", "right")
+#' Helper constructor for histogram-gating settings.
+#'
+#' @param histogram_pct_beads Fraction of events retained in bead histogram gate.
+#' @param histogram_direction_beads Gate direction for beads (`"both"`, `"left"`, `"right"`).
+#' @param histogram_pct_cells Fraction of events retained in cell histogram gate.
+#' @param histogram_direction_cells Gate direction for cells (`"both"`, `"left"`, `"right"`).
+#' @return Named list with gating settings.
+#' @examples
+#' opts <- gating_options(histogram_pct_beads = 0.98, histogram_pct_cells = 0.35)
+#' str(opts)
 #' @export
 gating_options <- function(histogram_pct_beads = 0.98,
                            histogram_direction_beads = "both",
@@ -17,7 +23,14 @@ gating_options <- function(histogram_pct_beads = 0.98,
     )
 }
 
-#' Get standard fluorophore patterns
+#' Get Standard Fluorophore Filename Patterns
+#'
+#' Returns pattern dictionaries used for auto-detection from SCC filenames.
+#'
+#' @return List with `unstained`, `beads`, and `cells` pattern vectors.
+#' @examples
+#' pats <- get_fluorophore_patterns()
+#' names(pats)
 #' @export
 get_fluorophore_patterns <- function() {
     list(
@@ -88,7 +101,11 @@ get_sorted_detectors <- function(pd) {
 
     # 3. Parse laser and wavelength for sorting
     # Try to find laser nm (e.g., "405nm" or "405-")
-    laser_nm <- as.integer(gsub(".*?([0-9]{3})\\s*nm.*", "\\1", labels))
+    laser_nm <- suppressWarnings(as.integer(ifelse(
+        grepl("[0-9]{3}\\s*nm", labels),
+        gsub(".*?([0-9]{3})\\s*nm.*", "\\1", labels),
+        NA_character_
+    )))
     # If failed, try name (e.g., V1, B2)
     if (all(is.na(laser_nm))) {
         laser_code <- substr(names, 1, 1)
@@ -115,7 +132,12 @@ get_sorted_detectors <- function(pd) {
     ) # R
 
     # Wavelength: look for numbers after the laser name
-    wavelength <- as.integer(gsub(".*?([0-9]{3}).*", "\\1", sub("^[0-9]{3}nm", "", labels)))
+    label_wo_laser <- sub("^[0-9]{3}\\s*nm\\s*", "", labels)
+    wavelength <- suppressWarnings(as.integer(ifelse(
+        grepl("[0-9]{3}", label_wo_laser),
+        gsub(".*?([0-9]{3}).*", "\\1", label_wo_laser),
+        NA_character_
+    )))
     if (all(is.na(wavelength))) wavelength <- seq_along(names) # Fallback to index
 
     # 4. Sort

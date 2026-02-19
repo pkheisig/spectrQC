@@ -7,7 +7,15 @@
 #' @param M Reference matrix
 #' @param top_n Number of top high-error cells to analyze
 #' @param output_file Path to save the plot
+#' @param width Plot width.
+#' @param height Plot height.
 #' @param pd Optional pData for descriptive labels
+#' @return A `ggplot` object or `NULL` when residuals are unavailable.
+#' @examples
+#' \dontrun{
+#' p <- plot_detector_residuals(res_list[[1]], M, top_n = 50)
+#' print(p)
+#' }
 #' @export
 plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "detector_residuals.png", width = 250, height = 120, pd = NULL) {
     data <- res_list$data
@@ -79,6 +87,9 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
 #' @param data Unmixed data frame
 #' @param markers Vector of marker names to analyze
 #' @return A data frame with NPS values (MAD) per marker per file
+#' @examples
+#' nps <- calculate_nps(results_df)
+#' head(nps)
 #' @export
 calculate_nps <- function(data, markers = NULL) {
     if (is.null(markers)) {
@@ -103,6 +114,16 @@ calculate_nps <- function(data, markers = NULL) {
 }
 
 #' Plot Negative Population Spread
+#' @param nps_results Output of [calculate_nps()].
+#' @param output_file Path to save the plot (set `NULL` to skip saving).
+#' @param width Plot width.
+#' @return A `ggplot` object.
+#' @examples
+#' \dontrun{
+#' nps <- calculate_nps(results_df)
+#' p <- plot_nps(nps, output_file = "nps_plot.png")
+#' print(p)
+#' }
 #' @export
 plot_nps <- function(nps_results, output_file = "nps_plot.png", width = 200) {
     p <- ggplot2::ggplot(nps_results, ggplot2::aes(Marker, NPS, fill = File)) +

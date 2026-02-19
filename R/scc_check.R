@@ -6,6 +6,16 @@
 #' @param custom_fluorophores Named vector mapping filenames to fluorophores.
 #' @param png_dir Directory to save individual PNG plots.
 #' @param control_file Path to manual control mapping CSV.
+#' @return Invisibly returns `NULL`; writes SCC audit PDF and PNG panels.
+#' @examples
+#' \dontrun{
+#' generate_scc_report(
+#'   M = M,
+#'   scc_dir = "scc",
+#'   output_file = "SCC_QC_Report.pdf",
+#'   control_file = "fcs_control_file.csv"
+#' )
+#' }
 #' @export
 generate_scc_report <- function(M, scc_dir = "scc", output_file = "SCC_QC_Report.pdf", custom_fluorophores = NULL, png_dir = "spectrQC_outputs/plots/scc_audit", control_file = "fcs_control_file.csv") {
     message("Generating SCC-only QC Report...")

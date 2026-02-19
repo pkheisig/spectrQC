@@ -1,3 +1,51 @@
+#' Build a Reference Matrix from Single-Color Controls
+#'
+#' Reads SCC FCS files, performs FSC/SSC gating and positive-peak histogram gating,
+#' then computes one normalized spectrum per fluorophore.
+#'
+#' This is the core matrix-construction step used before unmixing.
+#'
+#' @param input_folder Directory containing SCC `.fcs` files.
+#' @param output_folder Directory where gating/spectrum plots are written.
+#' @param save_qc_plots Logical; if `TRUE`, write FSC/SSC, histogram, and spectrum plots.
+#' @param control_df Optional control mapping as a data.frame or CSV path.
+#'   Expected columns: `filename`, `fluorophore`, `channel`; `universal.negative` is optional.
+#' @param include_multi_af Logical; if `TRUE`, include additional AF controls from `af_dir`.
+#' @param af_dir Directory with extra AF controls when `include_multi_af = TRUE`.
+#' @param default_sample_type Fallback type when filename heuristics are ambiguous (`"beads"` or `"cells"`).
+#' @param cytometer Cytometer name used for channel alias resolution (for example `"Aurora"`).
+#' @param histogram_pct_beads Histogram gate width for bead controls.
+#' @param histogram_direction_beads Histogram gate direction for bead controls: `"both"`, `"left"`, or `"right"`.
+#' @param histogram_pct_cells Histogram gate width for cell controls.
+#' @param histogram_direction_cells Histogram gate direction for cell controls: `"both"`, `"left"`, or `"right"`.
+#' @param outlier_percentile Upper-tail FSC/SSC filtering percentile.
+#' @param debris_percentile Debris filtering percentile for cell controls.
+#' @param bead_gate_scale Ellipse scaling factor for bead FSC/SSC gate.
+#' @param histogram_min_x_log Reserved histogram lower x-limit parameter.
+#' @param max_clusters Maximum number of GMM components tested.
+#' @param min_cluster_proportion Minimum population proportion kept from GMM fit.
+#' @param gate_contour_beads Contour probability for bead gating ellipse/hull.
+#' @param gate_contour_cells Contour probability for cell gating ellipse/hull.
+#' @param subsample_n Maximum number of events used for GMM fitting per file.
+#'
+#' @return Numeric matrix with rows = fluorophores and columns = detectors (normalized spectra).
+#' @export
+#' @examples
+#' \dontrun{
+#' # Build matrix from SCC folder and control CSV
+#' M <- build_reference_matrix(
+#'   input_folder = "scc",
+#'   output_folder = "spectrQC_outputs/build_reference_plots",
+#'   control_df = "fcs_control_file.csv",
+#'   cytometer = "Aurora"
+#' )
+#'
+#' # Build quickly without saving QC plots
+#' M_fast <- build_reference_matrix(
+#'   input_folder = "scc",
+#'   save_qc_plots = FALSE
+#' )
+#' }
 build_reference_matrix <- function(
   input_folder = "scc",
   output_folder = "gating_and_spectrum_plots",
@@ -6,6 +54,7 @@ build_reference_matrix <- function(
   include_multi_af = FALSE,
   af_dir = "af",
   default_sample_type = "beads",
+  cytometer = "Aurora",
   histogram_pct_beads = 0.98,
   histogram_direction_beads = "both",
   histogram_pct_cells = 0.35,
@@ -24,6 +73,26 @@ build_reference_matrix <- function(
     library(data.table)
     library(sp)
     library(ggplot2)
+
+    if (is.character(control_df) && length(control_df) == 1 && !is.na(control_df)) {
+        if (!file.exists(control_df)) stop("control_df file not found: ", control_df)
+        control_df <- utils::read.csv(control_df, stringsAsFactors = FALSE, check.names = FALSE)
+    } else if (!is.null(control_df) && !is.data.frame(control_df)) {
+        stop("control_df must be either a data.frame or a single CSV path.")
+    }
+    if (is.data.frame(control_df)) {
+        if (!("filename" %in% colnames(control_df))) {
+            stop("control_df is missing required column: filename")
+        }
+        if (!("fluorophore" %in% colnames(control_df))) control_df$fluorophore <- ""
+        if (!("channel" %in% colnames(control_df))) control_df$channel <- ""
+        if (!("universal.negative" %in% colnames(control_df))) control_df$universal.negative <- ""
+
+        control_df$filename <- trimws(as.character(control_df$filename))
+        control_df$fluorophore <- trimws(as.character(control_df$fluorophore))
+        control_df$channel <- trimws(as.character(control_df$channel))
+        control_df$universal.negative <- trimws(as.character(control_df$universal.negative))
+    }
 
     sample_patterns <- get_fluorophore_patterns()
     fcs_files <- list.files(input_folder, pattern = "\\.fcs$", full.names = TRUE)
@@ -68,6 +137,60 @@ build_reference_matrix <- function(
     det_info <- get_sorted_detectors(flowCore::pData(flowCore::parameters(ff_meta)))
     detector_names <- det_info$names
     detector_labels <- det_info$labels
+
+    normalize_channel <- function(x) {
+        out <- toupper(gsub("\\s+", "", trimws(as.character(x))))
+        out[is.na(out)] <- ""
+        out
+    }
+
+    load_cytometer_alias_map <- function(cytometer_name) {
+        if (!requireNamespace("AutoSpectral", quietly = TRUE)) return(character())
+        cdb <- system.file("extdata/cytometer_database.csv", package = "AutoSpectral")
+        if (!file.exists(cdb)) return(character())
+        cyto_db <- tryCatch(
+            utils::read.csv(cdb, stringsAsFactors = FALSE, check.names = FALSE),
+            error = function(e) NULL
+        )
+        if (is.null(cyto_db) || nrow(cyto_db) == 0) return(character())
+        target_col <- colnames(cyto_db)[tolower(colnames(cyto_db)) == tolower(cytometer_name)]
+        if (length(target_col) == 0) return(character())
+
+        alias_map <- character()
+        targets <- normalize_channel(cyto_db[[target_col[1]]])
+        for (i in seq_len(nrow(cyto_db))) {
+            target <- targets[i]
+            if (!nzchar(target)) next
+            aliases <- normalize_channel(unlist(cyto_db[i, , drop = FALSE]))
+            aliases <- aliases[nzchar(aliases)]
+            for (alias in aliases) {
+                if (!alias %in% names(alias_map)) alias_map[alias] <- target
+            }
+        }
+        alias_map
+    }
+
+    channel_alias_map <- load_cytometer_alias_map(cytometer)
+
+    resolve_control_channel <- function(channel_value, det_names) {
+        if (is.null(channel_value) || is.na(channel_value) || trimws(channel_value) == "") return("")
+        if (channel_value %in% det_names) return(channel_value)
+
+        det_norm <- normalize_channel(det_names)
+        name_by_norm <- setNames(det_names, det_norm)
+        key <- normalize_channel(channel_value)
+        candidates <- unique(c(
+            key,
+            gsub("-A$", "", key),
+            paste0(key, "-A"),
+            if (length(channel_alias_map) > 0 && key %in% names(channel_alias_map)) channel_alias_map[[key]] else NULL
+        ))
+        candidates <- candidates[nzchar(candidates)]
+        for (cand in candidates) {
+            if (cand %in% det_norm) return(name_by_norm[[cand]])
+        }
+        ""
+    }
 
     message("Found ", length(detector_names), " spectral detectors. Sorting by laser...")
 
@@ -288,7 +411,20 @@ build_reference_matrix <- function(
         gated_data <- raw_data[sp::point.in.polygon(raw_data[, fsc], raw_data[, ssc], final_gate$x, final_gate$y) > 0, ]
         if (nrow(gated_data) < 100) next
 
-        peak_channel <- if (nrow(row_info) > 0 && !is.na(row_info$channel[1]) && row_info$channel[1] != "") row_info$channel[1] else detector_names[which.max(apply(gated_data[, detector_names, drop = FALSE], 2, function(x) quantile(x, 0.999, na.rm = TRUE)))]
+        inferred_peak_channel <- detector_names[which.max(apply(
+            gated_data[, detector_names, drop = FALSE],
+            2,
+            function(x) quantile(x, 0.999, na.rm = TRUE)
+        ))]
+        peak_channel <- inferred_peak_channel
+        if (nrow(row_info) > 0 && !is.na(row_info$channel[1]) && row_info$channel[1] != "") {
+            resolved_channel <- resolve_control_channel(row_info$channel[1], detector_names)
+            if (nzchar(resolved_channel)) {
+                peak_channel <- resolved_channel
+            } else {
+                warning("Control channel '", row_info$channel[1], "' for ", sn_ext, " not found in file. Falling back to inferred channel ", inferred_peak_channel, ".")
+            }
+        }
         message("  Peak channel: ", peak_channel)
         peak_vals <- gated_data[, peak_channel]
         vals_log <- log10(pmax(peak_vals, 1))
@@ -317,7 +453,12 @@ build_reference_matrix <- function(
 
         pos_spectrum_raw <- apply(final_gated_data[, detector_names, drop = FALSE], 2, median, na.rm = TRUE)
         neg_spectrum_raw <- apply(gated_data[peak_vals <= 10^quantile(vals_log, 0.15, na.rm = TRUE), detector_names, drop = FALSE], 2, median, na.rm = TRUE)
-        use_univ <- if (nrow(row_info) > 0 && !is.na(row_info$universal.negative[1])) (row_info$universal.negative[1] %in% c("TRUE", TRUE, "AF")) else FALSE
+        uv_val <- if (nrow(row_info) > 0 && "universal.negative" %in% colnames(row_info)) {
+            trimws(as.character(row_info$universal.negative[1]))
+        } else {
+            ""
+        }
+        use_univ <- toupper(uv_val) %in% c("TRUE", "AF")
         final_neg <- if (use_univ && !is.null(af_data_raw)) af_data_raw else neg_spectrum_raw
         sig_pure <- pmax(pos_spectrum_raw - final_neg, 0)
         if (max(sig_pure, na.rm = TRUE) <= 0) sig_pure <- pmax(pos_spectrum_raw, 0)

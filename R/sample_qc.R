@@ -2,9 +2,20 @@
 #' 
 #' Produces RRMSE scatter plots and individual file diagnostics for unmixed experimental samples.
 #' 
+#' @param unmixed_list Named list returned by [unmix_samples()].
 #' @param M Reference matrix used.
 #' @param report_file Path to final PDF report.
 #' @param png_dir Folder to save individual plot images.
+#' @param pd Optional detector metadata (`flowCore::pData(parameters(ff))`) for labels.
+#' @return Invisibly returns `NULL`; writes plots and PDF report to disk.
+#' @examples
+#' \dontrun{
+#' generate_sample_qc(
+#'   unmixed_list = unmixed,
+#'   M = M,
+#'   report_file = "Experimental_Sample_Audit.pdf"
+#' )
+#' }
 #' @export
 generate_sample_qc <- function(unmixed_list, 
                               M, 

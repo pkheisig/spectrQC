@@ -7,9 +7,19 @@
 #' @param scc_dir SCC folder.
 #' @param rrmse_threshold Cutoff for RRMSE cleaning.
 #' @param output_dir Folder for refined matrices and unmixed SCC files.
-#' @param custom_fluorophores Manual mapping.
+#' @param control_file Control mapping CSV used during refinement.
 #' @param report_file Path to comparison PDF report.
+#' @param png_dir Directory for intermediate comparison PNGs.
 #' @return A list with refined [[M]] and [[W]].
+#' @examples
+#' \dontrun{
+#' refined <- refine_scc_matrix(
+#'   M = M,
+#'   scc_dir = "scc",
+#'   control_file = "fcs_control_file.csv"
+#' )
+#' str(refined)
+#' }
 #' @export
 refine_scc_matrix <- function(M, 
                              scc_dir = "scc", 

@@ -1,3 +1,23 @@
+#' Gate Positive Events from a Single-Stain Matrix
+#'
+#' Performs one-dimensional histogram gating on the channel with highest variance.
+#' The function returns a logical vector indicating events inside the positive gate.
+#'
+#' @param mat Numeric matrix/data.frame of events x detectors.
+#' @param histogram_pct Fraction of events retained by the histogram gate.
+#' @param histogram_direction Gate direction: `"both"`, `"left"`, or `"right"`.
+#' @param histogram_min_x_log Reserved minimum x value on log10 scale.
+#'
+#' @return Logical vector of length `nrow(mat)`, `TRUE` for gated-in events.
+#' @export
+#' @examples
+#' set.seed(1)
+#' mat <- cbind(
+#'   ch1 = c(rlnorm(500, 2, 0.4), rlnorm(500, 5, 0.3)),
+#'   ch2 = rlnorm(1000, 2.5, 0.4)
+#' )
+#' idx <- gate_positive_cells(mat, histogram_pct = 0.4, histogram_direction = "right")
+#' mean(idx)
 gate_positive_cells <- function(mat,
                                 histogram_pct = 0.98,
                                 histogram_direction = "both",

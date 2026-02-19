@@ -43,11 +43,21 @@ The control file maps FCS filenames to fluorophores. Generate it using the [Auto
 
 ```r
 library(AutoSpectral)
-asp <- get.autospectral.param()
+asp <- get.autospectral.param(cytometer = "aurora")
 create.control.file("scc", asp)
 ```
 
-Or create manually with columns: `filename`, `fluorophore`, `channel`, `universal.negative`
+Or create manually with columns: `filename`, `fluorophore`, `channel` (`universal.negative` is optional).
+
+For auto-generation, `spectrQC` uses shipped dictionaries:
+- `inst/extdata/fluorophore_dictionary.csv`
+- `inst/extdata/marker_dictionary.csv`
+
+Logic:
+- detect `fluorophore` and `marker` from filename aliases first
+- if no fluorophore is detected, fallback to peak-channel mapping (for example `YG1 -> PE`, `UV2 -> BUV395`)
+- if a file is unlabeled (no marker/fluor match) but matches cytometer AF-channel behavior, it is auto-tagged as `AF`
+- if no marker is detected, marker is left empty
 
 ---
 
@@ -63,16 +73,41 @@ Use this when you want a quick SCC-only run (build matrix, SCC plots, SCC unmixi
 
 ```r
 library(spectrQC)
-control_df <- read.csv("fcs_control_file.csv", stringsAsFactors = FALSE, check.names = FALSE)
 
 quick_unmix(
   scc_dir = "scc",
-  control_df = control_df,
+  control_file = "fcs_control_file.csv",
+  auto_create_control = TRUE,
+  cytometer = "Aurora",
+  auto_unknown_fluor_policy = "by_channel",
   output_dir = "spectrQC_outputs/quick_unmix",
   unmix_method = "WLS",
-  build_qc_plots = TRUE
+  build_qc_plots = TRUE,
+  unmix_scatter_panel_size_mm = 30
 )
 ```
+
+If `fcs_control_file.csv` is missing and `auto_create_control = TRUE`, `quick_unmix()` auto-generates a control file (filename, marker, fluorophore, and detected peak channel), then asks for confirmation before continuing.
+`cytometer` is used for channel-aware fluorophore inference via the AutoSpectral fluorophore database.
+
+For newly auto-created files:
+- `control.type` is set to `cells` only for AF rows; all non-AF rows are left empty on purpose
+- `universal.negative` is left empty by default for all rows
+- `quick_unmix()` pauses and asks for `y/n` confirmation so you can review/edit the file first
+
+`quick_unmix()` writes:
+- `scc_spectra.png` (reference spectra overlay)
+- `scc_unmixing_matrix.png` and `scc_unmixing_matrix.csv`
+- `scc_unmixing_scatter_matrix.png` (lower-triangle scatter matrix, one single-stain file per row, with x=0/y=0 guides)
+
+Set `unmix_scatter_panel_size_mm` higher (for example `40`) if you want larger per-panel scatter plots.
+
+`quick_unmix()` also runs a strict preflight check before processing:
+- every SCC file must be mapped in `fcs_control_file.csv`
+- non-AF rows must define a valid `channel`
+- if `universal.negative` is present, values for active SCC rows must be empty/keyword or reference a file present in your selected SCC/AF directories
+
+If preflight fails, fix the listed rows and rerun. A common fix is to point `universal.negative` to your in-folder unstained control file.
 
 #### Path B: Full Production Workflow (with optional GUI adjustment)
 
@@ -95,6 +130,7 @@ unmixed <- unmix_samples(
   sample_dir = "samples",
   M = M_adj,
   method = "WLS",
+  cytometer = "Aurora",
   output_dir = "samples_unmixed"
 )
 
@@ -121,7 +157,8 @@ M <- build_reference_matrix(
   input_folder = "scc",
   output_folder = "gating_plots",
   control_df = control_df,
-  default_sample_type = "beads"
+  default_sample_type = "beads",
+  cytometer = "Aurora"
 )
 ```
 
@@ -188,6 +225,7 @@ unmixed <- unmix_samples(
   sample_dir = "samples",
   M = M_final,
   method = "WLS",                     # "OLS", "WLS", or "NNLS"
+  cytometer = "Aurora",
   output_dir = "samples_unmixed"
 )
 ```

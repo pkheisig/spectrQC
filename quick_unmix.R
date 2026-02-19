@@ -1,10 +1,12 @@
 devtools::load_all(".")
 
-control_df <- read.csv("fcs_control_file.csv", stringsAsFactors = FALSE, check.names = FALSE)
-
 quick_unmix(
     scc_dir = "scc",
-    control_df = control_df,
+    control_file = "fcs_control_file.csv",
+    auto_create_control = TRUE,
+    cytometer = "Aurora",
+    auto_default_control_type = "beads",
+    auto_unknown_fluor_policy = "by_channel",
     output_dir = "spectrQC_outputs/quick_unmix",
     unmix_method = "WLS",
     build_qc_plots = TRUE

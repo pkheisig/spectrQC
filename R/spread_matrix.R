@@ -7,6 +7,12 @@
 #' @param method Unmixing method ("OLS" or "WLS")
 #' @param background_noise Background noise used for WLS
 #' @return A matrix (Markers x Markers) representing unmixing spread
+#' @examples
+#' M <- matrix(c(1, 0.2, 0.1, 1), nrow = 2, byrow = TRUE)
+#' rownames(M) <- c("FITC", "PE")
+#' colnames(M) <- c("B2-A", "YG1-A")
+#' ssm <- calculate_ssm(M)
+#' ssm
 #' @export
 calculate_ssm <- function(M, method = "OLS", background_noise = 100) {
     # This function estimates unmixing-induced spread analytically.
@@ -59,6 +65,14 @@ calculate_ssm <- function(M, method = "OLS", background_noise = 100) {
 #' @param output_file Path to save the plot
 #' @param width Width of plot in mm
 #' @param height Height of plot in mm
+#' @return A `ggplot` object.
+#' @examples
+#' M <- matrix(c(1, 0.2, 0.1, 1), nrow = 2, byrow = TRUE)
+#' rownames(M) <- c("FITC", "PE")
+#' colnames(M) <- c("B2-A", "YG1-A")
+#' ssm <- calculate_ssm(M)
+#' p <- plot_ssm(ssm, output_file = NULL)
+#' print(p)
 #' @export
 plot_ssm <- function(SSM, output_file = "spectral_spread_matrix.png", width = 200, height = 180) {
     long <- as.data.frame(SSM)

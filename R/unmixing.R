@@ -3,13 +3,25 @@
 #' @param sample_dir Directory containing experimental FCS files.
 #' @param M Reference matrix (Markers x Detectors).
 #' @param method Unmixing method ("WLS", "OLS", "NNLS", or "AutoSpectral").
+#' @param cytometer Cytometer name used when `method = "AutoSpectral"` (for example `"Aurora"`).
 #' @param output_dir Directory to save unmixed FCS files.
 #' @return A named list with one element per sample. Each element contains
 #'   `data` (unmixed abundances + QC metrics) and `residuals` (detector residual matrix).
+#' @examples
+#' \dontrun{
+#' unmixed <- unmix_samples(
+#'   sample_dir = "samples",
+#'   M = M,
+#'   method = "WLS",
+#'   output_dir = "samples_unmixed"
+#' )
+#' names(unmixed)
+#' }
 #' @export
 unmix_samples <- function(sample_dir = "samples", 
                           M = NULL, 
                           method = "WLS", 
+                          cytometer = "Aurora",
                           output_dir = "samples_unmixed") {
     dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
     fcs_files <- list.files(sample_dir, pattern = "\\.fcs$", full.names = TRUE)
@@ -21,6 +33,18 @@ unmix_samples <- function(sample_dir = "samples",
     allowed_methods <- c("WLS", "OLS", "NNLS", "AUTOSPECTRAL")
     if (!(method_upper %in% allowed_methods)) {
         stop("method must be one of: ", paste(allowed_methods, collapse = ", "))
+    }
+    if (method_upper == "AUTOSPECTRAL" && requireNamespace("AutoSpectral", quietly = TRUE)) {
+        cytometer_candidates <- unique(c(cytometer, tolower(cytometer), toupper(cytometer)))
+        ok <- FALSE
+        for (cand in cytometer_candidates) {
+            ok <- tryCatch({
+                AutoSpectral::get.autospectral.param(cytometer = cand, figures = FALSE)
+                TRUE
+            }, error = function(e) FALSE)
+            if (ok) break
+        }
+        if (!ok) stop("Unsupported cytometer for AutoSpectral: ", cytometer)
     }
 
     build_result_from_unmixed <- function(flow_frame, M_sub, abundances, file_name) {

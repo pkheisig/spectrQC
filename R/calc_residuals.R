@@ -8,6 +8,17 @@
 #' @param return_residuals Logical. If TRUE, returns a list containing the unmixed data and the raw residual matrix.
 #' @return Data frame with unmixed abundances, RMSE, Relative_RMSE, and scatter parameters. 
 #'         If return_residuals=TRUE, returns a list with [[data]] and [[residuals]].
+#' @examples
+#' \dontrun{
+#' ff <- flowCore::read.FCS("samples/Sample1.fcs", transformation = FALSE)
+#' res <- calc_residuals(
+#'   flow_frame = ff,
+#'   M = M,
+#'   method = "WLS",
+#'   return_residuals = TRUE
+#' )
+#' head(res$data)
+#' }
 #' @export
 calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS", 
                           background_noise = 25, return_residuals = FALSE) {

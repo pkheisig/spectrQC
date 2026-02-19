@@ -15,6 +15,7 @@ export(plot_spectra)
 export(plot_scatter_rmse)
 export(plot_marker_correlations)
 export(plot_unmixing_matrix)
+export(plot_unmixing_scatter_matrix)
 export(plot_detector_residuals)
 export(plot_scc_diagnostics)
 
@@ -33,6 +34,7 @@ export(generate_sample_qc)
 export(refine_reference_matrix)
 export(refine_scc_matrix)
 export(quick_unmix)
+export(validate_control_file_mapping)
 
 # AutoSpectral interface
 export(create_autospectral_control_file)

@@ -8,6 +8,12 @@
 #' @param method Unmixing method ("OLS" or "WLS")
 #' @param global_weights Optional vector of weights for WLS (one per detector)
 #' @return A matrix of unmixing coefficients (Markers x Detectors)
+#' @examples
+#' M <- matrix(c(1, 0.2, 0.1, 1), nrow = 2, byrow = TRUE)
+#' rownames(M) <- c("FITC", "PE")
+#' colnames(M) <- c("B2-A", "YG1-A")
+#' W <- derive_unmixing_matrix(M, method = "OLS")
+#' W
 #' @export
 derive_unmixing_matrix <- function(M, method = "OLS", global_weights = NULL) {
     # M is Markers (m) x Detectors (d)
@@ -50,6 +56,13 @@ derive_unmixing_matrix <- function(M, method = "OLS", global_weights = NULL) {
 #' Save Unmixing Matrix to CSV
 #' @param W Unmixing matrix
 #' @param file Path to save
+#' @return Invisibly returns `NULL`; writes CSV to disk.
+#' @examples
+#' tmp <- tempfile(fileext = ".csv")
+#' M <- matrix(c(1, 0.2, 0.1, 1), nrow = 2, byrow = TRUE)
+#' rownames(M) <- c("FITC", "PE")
+#' colnames(M) <- c("B2-A", "YG1-A")
+#' save_unmixing_matrix(M, tmp)
 #' @export
 save_unmixing_matrix <- function(W, file = "unmixing_matrix.csv") {
     W_df <- as.data.frame(W)
@@ -63,6 +76,12 @@ save_unmixing_matrix <- function(W, file = "unmixing_matrix.csv") {
 #' @param W Unmixing matrix
 #' @param pd Optional pData for descriptive labels
 #' @return ggplot object
+#' @examples
+#' M <- matrix(c(1, 0.2, 0.1, 1), nrow = 2, byrow = TRUE)
+#' rownames(M) <- c("FITC", "PE")
+#' colnames(M) <- c("B2-A", "YG1-A")
+#' p <- plot_unmixing_matrix(M)
+#' print(p)
 #' @export
 plot_unmixing_matrix <- function(W, pd = NULL) {
     long <- as.data.frame(W)

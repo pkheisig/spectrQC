@@ -1,3 +1,26 @@
+#' Generate a Full QC PDF Report
+#'
+#' Creates a multi-page report summarizing unmixing quality, including spectra,
+#' detector residuals, spread matrix, RRMSE scatter plots, NPS, and correlation panels.
+#'
+#' @param results_df Combined unmixed data frame (typically `rbind` of sample results).
+#' @param M Reference matrix used for unmixing.
+#' @param output_file Output PDF file path.
+#' @param res_list Optional residual object/list from `calc_residuals(..., return_residuals = TRUE)`.
+#' @param png_dir Directory where intermediate PNG pages are saved.
+#' @param pd Optional detector metadata (`flowCore::pData(parameters(ff))`) for axis labels.
+#'
+#' @return Invisibly returns `NULL`; writes report to disk.
+#' @export
+#' @examples
+#' \dontrun{
+#' # results_df <- data.table::rbindlist(lapply(unmixed_list, `[[`, "data"))
+#' generate_qc_report(
+#'   results_df = results_df,
+#'   M = M,
+#'   output_file = "spectrQC_Report.pdf"
+#' )
+#' }
 generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf", res_list = NULL, png_dir = "spectrQC_outputs/plots/report_pages", pd = NULL) {
     message("Generating spectrQC Summary Report...")
     dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
