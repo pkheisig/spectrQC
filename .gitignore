@@ -23,11 +23,15 @@ scc_unmixed/
 spectrQC_outputs/
 samples/
 scc/
-gui/node_modules/
-gui/dist/
+inst/gui/node_modules/
+inst/gui/dist/
 
 # System files
 .DS_Store
 
 # Logs
 *.log
+
+# Local package build/check artifacts
+*.tar.gz
+*.Rcheck/

@@ -2,11 +2,24 @@ Package: spectrQC
 Title: Full Spectrum Flow Cytometry QC & Unmixing
 Version: 0.1.0
 Authors@R: person("Paul Heisig", email = "p.k.s.heisig@amsterdamumc.nl", role = c("aut", "cre"))
-Author: Paul Heisig
-Maintainer: Paul Heisig <p.k.s.heisig@amsterdamumc.nl>
 Description: Validate spectral flow cytometry data by calculating unmixing residuals.
-License: MIT
-Depends: flowCore, ggplot2, dplyr, tidyr, data.table, mclust, sp, scales, nnls
-Suggests: AutoSpectral
+License: MIT + file LICENSE
+Depends: R (>= 4.1.0)
+Imports:
+    data.table,
+    dplyr,
+    flowCore,
+    ggplot2,
+    mclust,
+    nnls,
+    plumber,
+    scales,
+    sp,
+    tidyr
+Suggests:
+    AutoSpectral,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 Encoding: UTF-8
 RoxygenNote: 7.3.3

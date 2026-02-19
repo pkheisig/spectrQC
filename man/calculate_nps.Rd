@@ -19,6 +19,11 @@ Quantifies the spreading of negative populations after unmixing.
 High spread indicates poor unmixing or high spillover noise.
 }
 \examples{
-nps <- calculate_nps(results_df)
+demo_df <- data.frame(
+  File = rep(c("A", "B"), each = 50),
+  FITC = rnorm(100, sd = 0.3),
+  PE = rnorm(100, sd = 0.4)
+)
+nps <- calculate_nps(demo_df)
 head(nps)
 }

@@ -23,8 +23,6 @@ refine_reference_matrix <- function(M,
                                    input_folder = "scc", 
                                    rrmse_threshold = 0.05,
                                    control_df = NULL) {
-    library(flowCore)
-
     if (is.character(control_df) && length(control_df) == 1 && !is.na(control_df)) {
         if (!file.exists(control_df)) stop("control_df file not found: ", control_df)
         control_df <- utils::read.csv(control_df, stringsAsFactors = FALSE, check.names = FALSE)
@@ -86,8 +84,8 @@ refine_reference_matrix <- function(M,
         sn_ext <- basename(f)
         if (get_name(sn_ext) == "AF") {
             message("  Establishing AF baseline for refinement from ", sn_ext)
-            ff <- read.FCS(f, transformation = FALSE, truncate_max_range = FALSE)
-            raw_data <- exprs(ff)
+            ff <- flowCore::read.FCS(f, transformation = FALSE, truncate_max_range = FALSE)
+            raw_data <- flowCore::exprs(ff)
             if (nrow(raw_data) > 5000) raw_data <- raw_data[sample(nrow(raw_data), 5000), ]
             af_data_raw <- apply(raw_data[, detector_names, drop = FALSE], 2, median)
             break
@@ -110,8 +108,8 @@ refine_reference_matrix <- function(M,
         if (nrow(row_info) == 0) row_info <- get_control_rows(control_df, tools::file_path_sans_ext(sn_ext))
         
         message("Refining ", marker_name, " (", sn_ext, ")")
-        ff <- read.FCS(f, transformation = FALSE, truncate_max_range = FALSE)
-        raw_data <- exprs(ff)
+        ff <- flowCore::read.FCS(f, transformation = FALSE, truncate_max_range = FALSE)
+        raw_data <- flowCore::exprs(ff)
         
         # 1. Unmix against the specific signature in M
         sig <- M[marker_name, detector_names, drop = FALSE]

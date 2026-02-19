@@ -69,11 +69,6 @@ build_reference_matrix <- function(
   gate_contour_cells = 0.95,
   subsample_n = 5000
 ) {
-    library(mclust)
-    library(data.table)
-    library(sp)
-    library(ggplot2)
-
     if (is.character(control_df) && length(control_df) == 1 && !is.na(control_df)) {
         if (!file.exists(control_df)) stop("control_df file not found: ", control_df)
         control_df <- utils::read.csv(control_df, stringsAsFactors = FALSE, check.names = FALSE)
@@ -177,7 +172,7 @@ build_reference_matrix <- function(
         if (channel_value %in% det_names) return(channel_value)
 
         det_norm <- normalize_channel(det_names)
-        name_by_norm <- setNames(det_names, det_norm)
+        name_by_norm <- stats::setNames(det_names, det_norm)
         key <- normalize_channel(channel_value)
         candidates <- unique(c(
             key,
@@ -209,6 +204,8 @@ build_reference_matrix <- function(
     }
 
     fit_gmm_populations <- function(data, max_k = 5, min_prop = 0.05) {
+        # mclust::Mclust evaluates mclustBIC() in parent.frame(), so bind it here.
+        mclustBIC <- get("mclustBIC", envir = asNamespace("mclust"))
         fit <- mclust::Mclust(data, G = 1:max_k, verbose = FALSE)
         if (is.null(fit)) {
             return(NULL)
@@ -259,10 +256,10 @@ build_reference_matrix <- function(
             ell <- get_ellipse(gmm_result$means[, populations], gmm_result$sigmas[[populations]], level, scale = scale)
         } else {
             all_pts <- data.table::rbindlist(lapply(populations, function(k) get_ellipse(gmm_result$means[, k], gmm_result$sigmas[[k]], level, scale = scale)))
-            ell <- all_pts[chull(x, y), ]
+            ell <- all_pts[grDevices::chull(x, y), ]
         }
-        ell[, x := pmax(0, pmin(x, clip_x))]
-        ell[, y := pmax(0, pmin(y, clip_y))]
+        ell$x <- pmax(0, pmin(ell$x, clip_x))
+        ell$y <- pmax(0, pmin(ell$y, clip_y))
         return(ell)
     }
 
@@ -471,15 +468,28 @@ build_reference_matrix <- function(
             dt_plot_gating <- data.table::data.table(x = raw_data[, fsc], y = raw_data[, ssc])
             x_breaks <- seq(0, max(fsc_max, ssc_max) * 1.05, length.out = 201)
             y_breaks <- x_breaks
-            dt2d <- dt_plot_gating[findInterval(x, x_breaks) >= 1 & findInterval(x, x_breaks) <= 200 & findInterval(y, x_breaks) >= 1 & findInterval(y, x_breaks) <= 200, .(count = .N), by = .(x_bin = findInterval(x, x_breaks), y_bin = findInterval(y, x_breaks))]
-            dt2d[, `:=`(x = x_breaks[x_bin], y = x_breaks[y_bin], fill = log10(count + 1))]
+            x_bin <- findInterval(dt_plot_gating$x, x_breaks)
+            y_bin <- findInterval(dt_plot_gating$y, y_breaks)
+            keep_bin <- x_bin >= 1 & x_bin <= 200 & y_bin >= 1 & y_bin <= 200
+            dt2d <- data.table::as.data.table(as.data.frame(table(
+                x_bin = x_bin[keep_bin],
+                y_bin = y_bin[keep_bin]
+            )))
+            data.table::setnames(dt2d, c("x_bin", "y_bin", "count"))
+            dt2d$x_bin <- as.integer(as.character(dt2d$x_bin))
+            dt2d$y_bin <- as.integer(as.character(dt2d$y_bin))
+            dt2d$count <- as.integer(as.character(dt2d$count))
+            dt2d <- dt2d[dt2d$count > 0, ]
+            dt2d$x <- x_breaks[dt2d$x_bin]
+            dt2d$y <- y_breaks[dt2d$y_bin]
+            dt2d$fill <- log10(dt2d$count + 1)
             p1 <- ggplot2::ggplot(dt2d, ggplot2::aes(x, y, fill = fill)) +
                 ggplot2::geom_tile(width = diff(x_breaks)[1], height = diff(y_breaks)[1]) +
                 ggplot2::scale_fill_gradientn(colors = c("#0000FF", "#00FFFF", "#00FF00", "#FFFF00", "#FF0000"), guide = "none") +
                 ggplot2::geom_path(data = final_gate, ggplot2::aes(x, y), inherit.aes = FALSE, color = "red", linewidth = 1) +
                 ggplot2::labs(title = paste0(sn, " - FSC/SSC"), subtitle = paste0(round(100 * nrow(gated_data) / nrow(raw_data), 1), "% gated"), x = pd$desc[pd$name == fsc], y = pd$desc[pd$name == ssc]) +
                 ggplot2::theme_minimal() +
-                ggplot2::theme(legend.position = "none", panel.grid = element_blank(), panel.background = element_rect(fill = "white", color = NA)) +
+                ggplot2::theme(legend.position = "none", panel.grid = ggplot2::element_blank(), panel.background = ggplot2::element_rect(fill = "white", color = NA)) +
                 ggplot2::coord_cartesian(xlim = c(0, max(fsc_max, ssc_max) * 1.05), ylim = c(0, max(fsc_max, ssc_max) * 1.05))
             ggplot2::ggsave(file.path(out_path, "fsc_ssc", paste0(sn, "_fsc_ssc.png")), p1, width = 5, height = 5, dpi = 300)
 
@@ -500,18 +510,19 @@ build_reference_matrix <- function(
             breaks <- seq(min_y, max_y, length.out = 151)
             bin_mid <- (breaks[-1] + breaks[-length(breaks)]) / 2
             bin_height <- breaks[2] - breaks[1]
-            counts_mat <- vapply(seq_len(ncol(log_mat)), function(j) as.numeric(hist(log_mat[, j], breaks = breaks, plot = FALSE)$counts), numeric(length(bin_mid)))
+            counts_mat <- vapply(seq_len(ncol(log_mat)), function(j) as.numeric(graphics::hist(log_mat[, j], breaks = breaks, plot = FALSE)$counts), numeric(length(bin_mid)))
             rownames(counts_mat) <- as.character(seq_along(bin_mid))
             colnames(counts_mat) <- as.character(seq_len(ncol(log_mat)))
             dt_c <- data.table::as.data.table(as.table(counts_mat))
             data.table::setnames(dt_c, c("bin_idx", "ch_idx", "count"))
-            dt_c[, `:=`(bin_idx = as.integer(as.character(bin_idx)), ch_idx = as.integer(as.character(ch_idx)))]
-            dt_c[, y_orig := bin_mid[bin_idx]]
-            dt_c[, fill := log10(count + 1)]
+            dt_c$bin_idx <- as.integer(as.character(dt_c$bin_idx))
+            dt_c$ch_idx <- as.integer(as.character(dt_c$ch_idx))
+            dt_c$y_orig <- bin_mid[dt_c$bin_idx]
+            dt_c$fill <- log10(dt_c$count + 1)
             min_bin_count <- 3
-            dt_c <- dt_c[count >= min_bin_count]
+            dt_c <- dt_c[dt_c$count >= min_bin_count, ]
             y_power <- 1.5
-            dt_c[, y := y_orig^y_power]
+            dt_c$y <- dt_c$y_orig^y_power
 
             if (nrow(dt_c) == 0) {
                 message("  Warning: dt_c is empty for ", sn, ". Max count: ", max(counts_mat, na.rm = TRUE))

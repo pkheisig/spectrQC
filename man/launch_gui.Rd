@@ -37,6 +37,6 @@ launch_gui(matrix_dir = "/path/to/my/matrices")
 
 # Then in a separate terminal, run:
 # cd /path/to/spectrQC/gui && npm run dev
-# Open http://localhost:5174 in your browser
+# Open localhost:5174 in your browser
 }
 }

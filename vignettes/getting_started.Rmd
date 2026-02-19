@@ -11,6 +11,10 @@ vignette: >
 
 This tutorial walks you through the complete spectrQC workflow for validating spectral flow cytometry unmixing.
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
 ## Installation
 
 ```r
@@ -212,7 +216,7 @@ launch_gui(
 )
 ```
 
-This starts both the backend API and frontend automatically, opening http://localhost:5174.
+This starts both the backend API and frontend automatically, opening `localhost:5174`.
 
 **Features:**
 

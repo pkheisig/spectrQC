@@ -25,11 +25,7 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
     message("Generating spectrQC Summary Report...")
     dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
     
-    if (!requireNamespace("gridExtra", quietly = TRUE)) {
-        stop("Package 'gridExtra' required for report generation.")
-    }
-    
-    pdf(output_file, width = 11, height = 8.5)
+    grDevices::pdf(output_file, width = 11, height = 8.5)
     
     grid::grid.newpage()
     summary_txt <- paste0(
@@ -104,12 +100,16 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
     grid::grid.newpage()
     high_spread <- which(ssm > 10, arr.ind = TRUE)
     spread_msgs <- if(nrow(high_spread) > 0) sapply(1:nrow(high_spread), function(i) paste0("- ", rownames(ssm)[high_spread[i,1]], " spreads noise heavily into ", colnames(ssm)[high_spread[i,2]])) else "- No extreme noise spread detected between markers."
-    bad_files <- results_df[, .(Mean_RRMSE = mean(Relative_RMSE)), by = File][Mean_RRMSE > 0.03, File]
+    bad_files <- results_df |>
+        dplyr::group_by(File) |>
+        dplyr::summarise(Mean_RRMSE = mean(Relative_RMSE, na.rm = TRUE), .groups = "drop") |>
+        dplyr::filter(Mean_RRMSE > 0.03) |>
+        dplyr::pull(File)
     rrmse_msgs <- if(length(bad_files) > 0) paste0("- High overall error in: ", paste(bad_files, collapse = ", ")) else "- Overall spectral fit error is low (<3%) for all samples."
     wrap_lines <- function(x, width = 80) paste(strwrap(x, width = width), collapse = "\n")
     rec_txt <- paste0("spectrQC: Conclusions & Recommendations\n\n", "Spectral Spread Analysis:\n", wrap_lines(paste(spread_msgs, collapse = "\n")), "\n\n", "Spectral Fit Analysis:\n", wrap_lines(rrmse_msgs), "\n\n", "General Recommendations:\n", "1. If RRMSE > 5% points cluster in specific FSC/SSC regions, they may be debris.\n", "2. Markers with high spread should not be used to resolve dim co-expressed populations.\n", "3. If detector residuals show laser-specific patterns, check instrument calibration.")
     grid::grid.text(rec_txt, x = 0.1, y = 0.9, just = c("left", "top"), gp = grid::gpar(fontsize = 11, lineheight = 1.2))
     
-    dev.off()
+    grDevices::dev.off()
     message("Report saved to: ", output_file)
 }

@@ -31,7 +31,7 @@ generate_sample_qc <- function(unmixed_list,
     
     # 1. Setup metadata for labels (from first sample if provided)
     
-    pdf(report_file, width = 11, height = 8.5)
+    grDevices::pdf(report_file, width = 11, height = 8.5)
     
     grid::grid.newpage()
     grid::grid.text("spectrQC: Experimental Sample Audit", x = 0.5, y = 0.6, gp = grid::gpar(fontsize = 20))
@@ -71,6 +71,6 @@ generate_sample_qc <- function(unmixed_list,
         if (!is.null(p_res)) print(p_res)
     }
     
-    dev.off()
+    grDevices::dev.off()
     message("Sample QC Report saved to: ", report_file)
 }

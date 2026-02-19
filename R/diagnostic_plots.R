@@ -88,7 +88,12 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
 #' @param markers Vector of marker names to analyze
 #' @return A data frame with NPS values (MAD) per marker per file
 #' @examples
-#' nps <- calculate_nps(results_df)
+#' demo_df <- data.frame(
+#'   File = rep(c("A", "B"), each = 50),
+#'   FITC = rnorm(100, sd = 0.3),
+#'   PE = rnorm(100, sd = 0.4)
+#' )
+#' nps <- calculate_nps(demo_df)
 #' head(nps)
 #' @export
 calculate_nps <- function(data, markers = NULL) {

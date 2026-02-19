@@ -615,8 +615,8 @@ create_autospectral_control_file <- function(input_folder = "scc",
         df$control.type[df$filename == primary_af_file] <- "cells"
     }
 
-    # USE STANDARD write.csv for compatibility with AutoSpectral's reader
-    write.csv(df, output_file, row.names = FALSE, quote = TRUE)
+    # Use base write.csv for compatibility with AutoSpectral's reader
+    utils::write.csv(df, output_file, row.names = FALSE, quote = TRUE)
     return(df)
 }
 
@@ -693,7 +693,8 @@ get_autospectral_spectra <- function(flow_frame,
     return(M_expanded[, detector_names, drop = FALSE])
 }
 
-#' Internal helper to extract gated AF signatures
+#' Internal Helper: Extract Gated AF Signatures
+#' @noRd
 extract_af_signatures <- function(af_dir, detector_names) {
     af_files <- list.files(af_dir, pattern = "\\.fcs$", full.names = TRUE)
     if (length(af_files) == 0) return(matrix(0, nrow = 0, ncol = length(detector_names)))

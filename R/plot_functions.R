@@ -51,7 +51,7 @@ plot_scatter_rmse <- function(data,
     # If Relative_RMSE, convert to percentage for better readability
     legend_name <- metric
     if (metric == "Relative_RMSE") {
-        plot_data[, Relative_RMSE := Relative_RMSE * 100]
+        plot_data$Relative_RMSE <- plot_data$Relative_RMSE * 100
         legend_name <- "RRMSE (%)"
         if (is.null(color_limits)) color_limits <- c(0, 5) # Default 0-5% range for RRMSE
     }
@@ -62,14 +62,14 @@ plot_scatter_rmse <- function(data,
         dplyr::filter(
             `FSC-A` >= quantile(`FSC-A`, 0.005, na.rm=TRUE) & `FSC-A` <= quantile(`FSC-A`, 0.995, na.rm=TRUE),
             `SSC-A` >= quantile(`SSC-A`, 0.005, na.rm=TRUE) & `SSC-A` <= quantile(`SSC-A`, 0.995, na.rm=TRUE)
-        ) |>
-        dplyr::arrange(.data[[metric]])
+        )
+    plot_data <- plot_data[order(plot_data[[metric]]), , drop = FALSE]
 
     # Calculate number of columns for facet grid
     n_files <- length(unique(plot_data$File))
     ncols <- ceiling(sqrt(n_files))
 
-    p <- ggplot2::ggplot(plot_data, ggplot2::aes(`FSC-A`, `SSC-A`, color = .data[[metric]])) +
+    p <- ggplot2::ggplot(plot_data, ggplot2::aes_string(x = "FSC-A", y = "SSC-A", color = metric)) +
         ggplot2::geom_point(size = 0.1, alpha = 0.8) + # Larger and more opaque
         ggplot2::scale_color_gradientn(
             colors = c("gray98", "gray90", "orange", "red", "black"),
@@ -152,7 +152,7 @@ plot_marker_correlations <- function(data,
     plot_data <- data.table::copy(data.table::as.data.table(data))
     y_name <- metric
     if (metric == "Relative_RMSE") {
-        plot_data[, Relative_RMSE := Relative_RMSE * 100]
+        plot_data$Relative_RMSE <- plot_data$Relative_RMSE * 100
         y_name <- "RRMSE (%)"
         if (is.null(y_limits)) y_limits <- c(0, 10) # Default 0-10% for correlations
     }
@@ -171,7 +171,7 @@ plot_marker_correlations <- function(data,
         ) |>
         dplyr::ungroup()
 
-    p <- ggplot2::ggplot(long, ggplot2::aes(Intensity, .data[[metric]])) +
+    p <- ggplot2::ggplot(long, ggplot2::aes_string(x = "Intensity", y = metric)) +
         ggplot2::geom_point(size = 0.1, alpha = 0.1) +
         {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "darkred", linetype = "dashed", linewidth = 0.8, alpha = 0.7)} +
         {if(show_smooth) ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"))} +
@@ -233,8 +233,8 @@ plot_spectra <- function(ref_matrix,
         
         if (length(common) == 0) {
             warning("No matching detectors found between reference matrix and provided metadata. Ignoring metadata.")
-            message("Ref Matrix cols (first 5): ", paste(head(detectors, 5), collapse=", "))
-            message("Metadata names (first 5): ", paste(head(det_info$names, 5), collapse=", "))
+            message("Ref Matrix cols (first 5): ", paste(utils::head(detectors, 5), collapse=", "))
+            message("Metadata names (first 5): ", paste(utils::head(det_info$names, 5), collapse=", "))
 
             # Fallback to numerical sort
             nums <- as.numeric(gsub("[^0-9]", "", detectors))
@@ -339,7 +339,7 @@ plot_unmixing_scatter_matrix <- function(
     sample_keys <- normalize_id(sample_ids)
 
     if (is.null(sample_to_marker)) {
-        sample_to_marker <- setNames(sample_ids, sample_ids)
+        sample_to_marker <- stats::setNames(sample_ids, sample_ids)
     }
     marker_names_raw <- names(sample_to_marker)
     sample_to_marker <- as.character(sample_to_marker)

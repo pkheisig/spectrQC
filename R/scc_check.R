@@ -36,7 +36,7 @@ generate_scc_report <- function(M, scc_dir = "scc", output_file = "SCC_QC_Report
 
     all_data <- data.table::rbindlist(lapply(res_list, `[[`, "data"))
 
-    pdf(output_file, width = 11, height = 8.5)
+    grDevices::pdf(output_file, width = 11, height = 8.5)
 
     # Page 1: Title
     grid::grid.newpage()
@@ -59,6 +59,6 @@ generate_scc_report <- function(M, scc_dir = "scc", output_file = "SCC_QC_Report
     message("  - Adding diagnostics...")
     print(plot_scc_diagnostics(M, input_folder = scc_dir, custom_fluorophores = custom_fluorophores, output_folder = png_dir, control_file = control_file))
 
-    dev.off()
+    grDevices::dev.off()
     message("SCC Report saved to: ", output_file)
 }

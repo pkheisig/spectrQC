@@ -126,8 +126,6 @@ generate_sample_qc(
 )
 ```
 
-`quick_unmix()` is kept as a compatibility alias and now calls `autounmix_controls()`.
-
 ### Step 1: Build Reference Matrix
 
 Extract spectral signatures from single-color controls:
@@ -266,7 +264,7 @@ launch_gui(
 )
 ```
 
-This starts both the backend API and frontend automatically, opening http://localhost:5174 in your browser.
+This starts both the backend API and frontend automatically, opening `localhost:5174` in your browser.
 
 ### What To Do After GUI
 

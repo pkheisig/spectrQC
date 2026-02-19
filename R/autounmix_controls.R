@@ -242,7 +242,7 @@ autounmix_controls <- function(
         sample_vals <- trimws(as.character(control_df$fluorophore))
         keep <- !is.na(sample_keys) & sample_keys != "" & !is.na(sample_vals) & sample_vals != ""
         if (any(keep)) {
-            sample_to_marker <- setNames(sample_vals[keep], sample_keys[keep])
+            sample_to_marker <- stats::setNames(sample_vals[keep], sample_keys[keep])
             sample_to_marker <- sample_to_marker[!duplicated(names(sample_to_marker))]
         }
     }

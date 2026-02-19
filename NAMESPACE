@@ -1,44 +1,43 @@
-# Core workflow
+importFrom(graphics,hist)
+importFrom(grDevices,chull)
+importFrom(grDevices,dev.off)
+importFrom(grDevices,pdf)
+importFrom(stats,density)
+importFrom(stats,mad)
+importFrom(stats,median)
+importFrom(stats,qchisq)
+importFrom(stats,quantile)
+importFrom(stats,setNames)
+importFrom(stats,var)
+importFrom(utils,head)
+
+export(autounmix_controls)
 export(build_reference_matrix)
 export(calc_residuals)
+export(calculate_nps)
+export(calculate_ssm)
+export(create_autospectral_control_file)
 export(derive_unmixing_matrix)
-export(save_unmixing_matrix)
-export(unmix_samples)
-
-# Gating utilities
-export(gating_options)
-export(get_fluorophore_patterns)
 export(gate_positive_cells)
-
-# Plotting functions
-export(plot_spectra)
-export(plot_scatter_rmse)
+export(gating_options)
+export(generate_qc_report)
+export(generate_sample_qc)
+export(generate_scc_report)
+export(get_autospectral_spectra)
+export(get_fluorophore_patterns)
+export(get_sorted_detectors)
+export(launch_gui)
+export(plot_detector_residuals)
 export(plot_marker_correlations)
+export(plot_nps)
+export(plot_scatter_rmse)
+export(plot_scc_diagnostics)
+export(plot_spectra)
+export(plot_ssm)
 export(plot_unmixing_matrix)
 export(plot_unmixing_scatter_matrix)
-export(plot_detector_residuals)
-export(plot_scc_diagnostics)
-
-# Quality metrics
-export(calculate_nps)
-export(plot_nps)
-export(calculate_ssm)
-export(plot_ssm)
-
-# Reporting
-export(generate_qc_report)
-export(generate_scc_report)
-export(generate_sample_qc)
-
-# Matrix refinement
 export(refine_reference_matrix)
 export(refine_scc_matrix)
-export(autounmix_controls)
-export(quick_unmix)
+export(save_unmixing_matrix)
+export(unmix_samples)
 export(validate_control_file_mapping)
-
-# AutoSpectral interface
-export(create_autospectral_control_file)
-
-# GUI
-export(launch_gui)

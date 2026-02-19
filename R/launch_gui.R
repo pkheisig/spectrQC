@@ -19,7 +19,7 @@
 #'
 #' # Then in a separate terminal, run:
 #' # cd /path/to/spectrQC/gui && npm run dev
-#' # Open http://localhost:5174 in your browser
+#' # Open localhost:5174 in your browser
 #' }
 launch_gui <- function(matrix_dir = getwd(), samples_dir = NULL, port = 8000, open_browser = TRUE) {
     api_path <- system.file("api/gui_api.R", package = "spectrQC")
@@ -27,9 +27,11 @@ launch_gui <- function(matrix_dir = getwd(), samples_dir = NULL, port = 8000, op
 
     if (api_path == "") {
         api_path <- file.path(getwd(), "inst", "api", "gui_api.R")
-        if (!file.exists(api_path)) api_path <- file.path(getwd(), "R", "gui_api.R")
     }
     if (gui_path == "" || !dir.exists(gui_path)) {
+        gui_path <- file.path(getwd(), "inst", "gui")
+    }
+    if (!dir.exists(gui_path)) {
         gui_path <- file.path(getwd(), "gui")
     }
 
@@ -59,7 +61,7 @@ launch_gui <- function(matrix_dir = getwd(), samples_dir = NULL, port = 8000, op
     message("Starting spectrQC API on port ", port)
     message("Matrix directory: ", matrix_dir)
     message("Samples directory: ", samples_dir)
-    message("Frontend: http://localhost:5174")
+    message("Frontend: localhost:5174")
 
     if (open_browser) utils::browseURL("http://localhost:5174")
 

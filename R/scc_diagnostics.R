@@ -25,10 +25,6 @@ plot_scc_diagnostics <- function(M,
                                 output_folder = "spectrQC_outputs/plots/scc_diagnostics",
                                 control_file = "fcs_control_file.csv",
                                 custom_fluorophores = NULL) {
-    library(flowCore)
-    library(ggplot2)
-    library(data.table)
-    
     if (!is.null(output_folder)) {
         dir.create(output_folder, showWarnings = FALSE, recursive = TRUE)
     }
@@ -101,8 +97,8 @@ plot_scc_diagnostics <- function(M,
         }
         
         message("  SCC Diagnostic: ", marker_name)
-        ff <- read.FCS(match_f, transformation = FALSE, truncate_max_range = FALSE)
-        raw_data <- exprs(ff)
+        ff <- flowCore::read.FCS(match_f, transformation = FALSE, truncate_max_range = FALSE)
+        raw_data <- flowCore::exprs(ff)
         if (nrow(raw_data) > 5000) raw_data <- raw_data[sample(nrow(raw_data), 5000), ]
         
         sig <- M[marker_name, detector_names, drop = FALSE]
@@ -116,31 +112,38 @@ plot_scc_diagnostics <- function(M,
         rmse <- sqrt(rowMeans(R^2))
         rrmse <- (rmse / pmax(rowSums(Y), 1)) * 100 # Percentage
         
-        all_rrmse[[marker_name]] <- data.table(Marker = marker_name, RRMSE = rrmse)
+        all_rrmse[[marker_name]] <- data.frame(
+            Marker = marker_name,
+            RRMSE = rrmse,
+            stringsAsFactors = FALSE
+        )
     }
     
-    res <- rbindlist(all_rrmse)
+    res <- dplyr::bind_rows(all_rrmse)
     
-    p <- ggplot(res, aes(x = RRMSE, fill = Marker)) +
-        geom_density(alpha = 0.5) +
-        scale_y_log10() + # Log scale to see tiny outlier peaks
-        geom_vline(xintercept = 5, linetype = "dashed", color = "red") +
-        facet_wrap(~Marker, scales = "free_y") +
-        labs(title = "SCC Spectral Consistency (Initial Pass)",
+    p <- ggplot2::ggplot(res, ggplot2::aes(x = RRMSE, fill = Marker)) +
+        ggplot2::geom_density(alpha = 0.5) +
+        ggplot2::scale_y_log10() + # Log scale to see tiny outlier peaks
+        ggplot2::geom_vline(xintercept = 5, linetype = "dashed", color = "red") +
+        ggplot2::facet_wrap(~Marker, scales = "free_y") +
+        ggplot2::labs(title = "SCC Spectral Consistency (Initial Pass)",
              subtitle = "Dashed red line = 5% cutoff. Y-axis is LOG SCALE to highlight rare outliers.",
              x = "RRMSE (%)", y = "Density (Log)") +
-        theme_minimal() +
-        theme(legend.position = "none")
+        ggplot2::theme_minimal() +
+        ggplot2::theme(legend.position = "none")
     
     if (!is.null(output_folder)) {
-        ggsave(file.path(output_folder, "scc_rrmse_dist.png"), p, width = 250, height = 180, units = "mm")
+        ggplot2::ggsave(file.path(output_folder, "scc_rrmse_dist.png"), p, width = 250, height = 180, units = "mm")
     }
     
     # Also save a summary table
-    summary <- res[, .(
-        Median_RRMSE = median(RRMSE),
-        Pct_Above_5 = sum(RRMSE > 5) / .N * 100
-    ), by = Marker]
+    summary <- res |>
+        dplyr::group_by(Marker) |>
+        dplyr::summarise(
+            Median_RRMSE = stats::median(RRMSE, na.rm = TRUE),
+            Pct_Above_5 = sum(RRMSE > 5, na.rm = TRUE) / dplyr::n() * 100,
+            .groups = "drop"
+        )
     
     if (!is.null(output_folder)) {
         utils::write.csv(as.data.frame(summary), file.path(output_folder, "scc_qc_summary.csv"), row.names = FALSE, quote = TRUE)
