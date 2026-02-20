@@ -20,7 +20,7 @@
 #' unmixed <- unmix_samples(
 #'   sample_dir = "samples",
 #'   unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
-#'   output_dir = "samples_unmixed"
+#'   output_dir = "spectrQC_outputs/unmix_samples"
 #' )
 #' names(unmixed)
 #' }
@@ -31,7 +31,7 @@ unmix_samples <- function(sample_dir = "samples",
                           unmixing_matrix_file = file.path("spectrQC_outputs", "autounmix_controls", "scc_unmixing_matrix.csv"),
                           method = "WLS", 
                           cytometer = "Aurora",
-                          output_dir = "samples_unmixed",
+                          output_dir = file.path("spectrQC_outputs", "unmix_samples"),
                           write_fcs = TRUE) {
     dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
     fcs_files <- list.files(sample_dir, pattern = "\\.fcs$", full.names = TRUE)
@@ -215,8 +215,8 @@ unmix_samples <- function(sample_dir = "samples",
             unmixed_exprs <- as.matrix(res_obj$data[, cols_to_write, drop = FALSE])
             
             new_ff <- flowCore::flowFrame(unmixed_exprs)
-            # Copy keywords from original if possible (optional but good practice)
-            new_ff@description <- ff@description
+            # Do not copy raw metadata wholesale; old spillover/parameter keywords
+            # can become inconsistent with the unmixed channels and break downstream tools.
             
             flowCore::write.FCS(new_ff, file.path(output_dir, paste0(sn, "_unmixed.fcs")))
         }

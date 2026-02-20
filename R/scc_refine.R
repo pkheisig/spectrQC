@@ -80,7 +80,6 @@ refine_scc_matrix <- function(M,
         unmixed_exprs <- as.matrix(res[, c(markers_to_keep, scatter_cols)])
         
         new_ff <- flowCore::flowFrame(unmixed_exprs)
-        new_ff@description <- ff@description
         flowCore::write.FCS(new_ff, file.path(output_dir, paste0(sn, "_unmixed.fcs")))
     }
     

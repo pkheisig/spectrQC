@@ -161,7 +161,7 @@ Apply the refined matrix to your experimental data:
       sample_dir = "samples",
       M = M_final,
       method = "WLS",
-      output_dir = "samples_unmixed"
+      output_dir = "spectrQC_outputs/unmix_samples"
     )
 
 

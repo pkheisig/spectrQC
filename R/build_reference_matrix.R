@@ -408,16 +408,42 @@ build_reference_matrix <- function(
         gated_data <- raw_data[sp::point.in.polygon(raw_data[, fsc], raw_data[, ssc], final_gate$x, final_gate$y) > 0, ]
         if (nrow(gated_data) < 100) next
 
-        inferred_peak_channel <- detector_names[which.max(apply(
+        q999_by_channel <- apply(
             gated_data[, detector_names, drop = FALSE],
             2,
-            function(x) quantile(x, 0.999, na.rm = TRUE)
-        ))]
+            function(x) stats::quantile(x, 0.999, na.rm = TRUE)
+        )
+        inferred_peak_channel <- detector_names[which.max(q999_by_channel)]
         peak_channel <- inferred_peak_channel
         if (nrow(row_info) > 0 && !is.na(row_info$channel[1]) && row_info$channel[1] != "") {
             resolved_channel <- resolve_control_channel(row_info$channel[1], detector_names)
             if (nzchar(resolved_channel)) {
-                peak_channel <- resolved_channel
+                # Guardrail: if control-file channel is clearly weak vs inferred peak,
+                # prefer inferred channel to avoid collapsing bimodal histograms.
+                inferred_val <- as.numeric(q999_by_channel[inferred_peak_channel])
+                resolved_val <- as.numeric(q999_by_channel[resolved_channel])
+                ranked <- names(sort(q999_by_channel, decreasing = TRUE))
+                resolved_rank <- match(resolved_channel, ranked)
+                use_inferred <- is.finite(inferred_val) &&
+                    is.finite(resolved_val) &&
+                    inferred_val > 0 &&
+                    !is.na(resolved_rank) &&
+                    resolved_rank > 8 &&
+                    (resolved_val / inferred_val) < 0.25
+
+                if (use_inferred) {
+                    warning(
+                        "Control channel '", row_info$channel[1], "' for ", sn_ext,
+                        " appears inconsistent with signal profile (rank ",
+                        resolved_rank, ", 99.9% ratio ",
+                        round(resolved_val / inferred_val, 3),
+                        "). Falling back to inferred channel ",
+                        inferred_peak_channel, "."
+                    )
+                    peak_channel <- inferred_peak_channel
+                } else {
+                    peak_channel <- resolved_channel
+                }
             } else {
                 warning("Control channel '", row_info$channel[1], "' for ", sn_ext, " not found in file. Falling back to inferred channel ", inferred_peak_channel, ".")
             }
@@ -463,8 +489,18 @@ build_reference_matrix <- function(
 
         if (save_qc_plots) {
             # FSC/SSC plot
-            fsc_desc <- pd$desc[pd$name == fsc]
-            ssc_desc <- pd$desc[pd$name == ssc]
+            get_axis_label <- function(ch_name, pd_tbl) {
+                idx <- match(ch_name, as.character(pd_tbl$name))
+                if (!is.na(idx) && "desc" %in% colnames(pd_tbl)) {
+                    desc_val <- trimws(as.character(pd_tbl$desc[idx]))
+                    if (!is.na(desc_val) && nzchar(desc_val)) {
+                        return(desc_val)
+                    }
+                }
+                ch_name
+            }
+            fsc_desc <- get_axis_label(fsc, pd)
+            ssc_desc <- get_axis_label(ssc, pd)
             dt_plot_gating <- data.table::data.table(x = raw_data[, fsc], y = raw_data[, ssc])
             x_breaks <- seq(0, max(fsc_max, ssc_max) * 1.05, length.out = 201)
             y_breaks <- x_breaks
@@ -487,7 +523,7 @@ build_reference_matrix <- function(
                 ggplot2::geom_tile(width = diff(x_breaks)[1], height = diff(y_breaks)[1]) +
                 ggplot2::scale_fill_gradientn(colors = c("#0000FF", "#00FFFF", "#00FF00", "#FFFF00", "#FF0000"), guide = "none") +
                 ggplot2::geom_path(data = final_gate, ggplot2::aes(x, y), inherit.aes = FALSE, color = "red", linewidth = 1) +
-                ggplot2::labs(title = paste0(sn, " - FSC/SSC"), subtitle = paste0(round(100 * nrow(gated_data) / nrow(raw_data), 1), "% gated"), x = pd$desc[pd$name == fsc], y = pd$desc[pd$name == ssc]) +
+                ggplot2::labs(title = paste0(sn, " - FSC/SSC"), subtitle = paste0(round(100 * nrow(gated_data) / nrow(raw_data), 1), "% gated"), x = fsc_desc, y = ssc_desc) +
                 ggplot2::theme_minimal() +
                 ggplot2::theme(legend.position = "none", panel.grid = ggplot2::element_blank(), panel.background = ggplot2::element_rect(fill = "white", color = NA)) +
                 ggplot2::coord_cartesian(xlim = c(0, max(fsc_max, ssc_max) * 1.05), ylim = c(0, max(fsc_max, ssc_max) * 1.05))

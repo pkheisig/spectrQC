@@ -12,7 +12,7 @@ unmix_samples(
     "scc_unmixing_matrix.csv"),
   method = "WLS",
   cytometer = "Aurora",
-  output_dir = "samples_unmixed",
+  output_dir = file.path("spectrQC_outputs", "unmix_samples"),
   write_fcs = TRUE
 )
 }
@@ -51,7 +51,7 @@ args(unmix_samples)
 unmixed <- unmix_samples(
   sample_dir = "samples",
   unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
-  output_dir = "samples_unmixed"
+  output_dir = "spectrQC_outputs/unmix_samples"
 )
 names(unmixed)
 }

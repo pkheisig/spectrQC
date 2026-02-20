@@ -22,6 +22,10 @@ generate_sample_qc <- function(unmixed_list,
                               report_file = "Experimental_Sample_Audit.pdf",
                               png_dir = "spectrQC_outputs/plots/sample_audit",
                               pd = NULL) {
+    report_dir <- dirname(report_file)
+    if (!is.na(report_dir) && nzchar(report_dir) && report_dir != ".") {
+        dir.create(report_dir, showWarnings = FALSE, recursive = TRUE)
+    }
     dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
     if (length(unmixed_list) == 0) stop("unmixed_list is empty.")
     
@@ -39,7 +43,7 @@ generate_sample_qc <- function(unmixed_list,
     # Page: Unmixing Matrix
     message("  - Adding unmixing matrix...")
     W <- derive_unmixing_matrix(M, method = "OLS") 
-    save_unmixing_matrix(W, "unmixing_matrix.csv") # Save as CSV as requested
+    save_unmixing_matrix(W, file.path(report_dir, "unmixing_matrix.csv"))
     p_w <- plot_unmixing_matrix(W, pd = pd)
     ggplot2::ggsave(file.path(png_dir, "01_unmixing_matrix.png"), p_w, width = 200, height = 150, units = "mm")
     print(p_w)

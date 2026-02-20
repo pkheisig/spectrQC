@@ -113,7 +113,7 @@ Set `unmix_scatter_panel_size_mm` higher (for example `40`) if you want larger p
 unmixed <- unmix_samples(
   sample_dir = "samples",
   unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
-  output_dir = "samples_unmixed"
+  output_dir = "spectrQC_outputs/unmix_samples"
 )
 
 # QC report
@@ -211,14 +211,14 @@ unmixed <- unmix_samples(
   M = M_final,
   method = "WLS",                     # "OLS", "WLS", or "NNLS"
   cytometer = "Aurora",
-  output_dir = "samples_unmixed"
+  output_dir = "spectrQC_outputs/unmix_samples"
 )
 
 # Option 2: static unmixing from saved unmixing matrix (W)
 unmixed_w <- unmix_samples(
   sample_dir = "samples",
   unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
-  output_dir = "samples_unmixed_w"
+  output_dir = "spectrQC_outputs/unmix_samples_w"
 )
 ```
 
@@ -327,7 +327,7 @@ Unmixed intensity vs RRMSE for each marker.
 
 - `gating_plots/`: Gating and spectrum visualizations for each SCC
 - `scc_unmixed/`: Refined matrices and unmixed control files
-- `samples_unmixed/`: Unmixed experimental data (FCS format)
+- `spectrQC_outputs/unmix_samples/`: Unmixed experimental data (FCS format)
 - `spectrQC_outputs/plots/`: Individual PNG exports from reports
 
 ---

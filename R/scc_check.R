@@ -19,6 +19,10 @@
 #' @export
 generate_scc_report <- function(M, scc_dir = "scc", output_file = "SCC_QC_Report.pdf", custom_fluorophores = NULL, png_dir = "spectrQC_outputs/plots/scc_audit", control_file = "fcs_control_file.csv") {
     message("Generating SCC-only QC Report...")
+    out_dir <- dirname(output_file)
+    if (!is.na(out_dir) && nzchar(out_dir) && out_dir != ".") {
+        dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+    }
     dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
 
     # 1. Setup metadata from first file

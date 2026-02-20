@@ -23,6 +23,10 @@
 #' }
 generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf", res_list = NULL, png_dir = "spectrQC_outputs/plots/report_pages", pd = NULL) {
     message("Generating spectrQC Summary Report...")
+    out_dir <- dirname(output_file)
+    if (!is.na(out_dir) && nzchar(out_dir) && out_dir != ".") {
+        dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+    }
     dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
     
     grDevices::pdf(output_file, width = 11, height = 8.5)
