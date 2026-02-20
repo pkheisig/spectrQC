@@ -39,7 +39,8 @@ my_project/
 
 ### Control File
 
-<img width="1097" height="398" alt="Screenshot 2026-02-20 at 10 56 41" src="https://github.com/user-attachments/assets/e1d54a14-d258-4b99-a7fb-ab5281691ab9" />
+<img width="1102" height="201" alt="Screenshot 2026-02-20 at 11 00 23" src="https://github.com/user-attachments/assets/a8c5e253-e1c8-4592-8ea2-e0f404932a54" />
+
 
 The control file maps FCS filenames to fluorophores. Generate it using the [AutoSpectral](https://github.com/DrCytometer/AutoSpectral) package:
 
