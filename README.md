@@ -63,13 +63,9 @@ Logic:
 
 ## Workflow
 
-### Typical Sequence (Field-Friendly)
+### Path A: Recommended Quick Workflow
 
-You usually follow one of these two paths:
-
-#### Path A: Recommended Split Workflow
-
-1) Run controls with `autounmix_controls()`:
+#### Step 1: Run controls with `autounmix_controls()`:
 
 ```r
 library(spectrQC)
@@ -108,7 +104,9 @@ Set `unmix_scatter_panel_size_mm` higher (for example `40`) if you want larger p
 - non-AF rows must define a valid `channel`
 - if `universal.negative` is present, values for active SCC rows must be empty/keyword or reference a file present in your selected SCC/AF directories
 
-2) Optional: adjust matrix in GUI (between controls and samples), then unmix samples:
+---
+
+#### Step 2: Unmix samples using the unmixing matrix generated in the autounmix_controls step.
 
 ```r
 # Uses saved unmixing matrix by filepath (default points to autounmix_controls output)
@@ -126,7 +124,9 @@ generate_sample_qc(
 )
 ```
 
-### Step 1: Build Reference Matrix
+### Path B: Step-wise manual workflow
+
+#### Step 1: Build Reference Matrix
 
 Extract spectral signatures from single-color controls:
 
@@ -148,9 +148,9 @@ M <- build_reference_matrix(
 
 This saves gating and spectrum plots to `gating_plots/` and exports `reference_matrix.csv`.
 
-#### Gating Parameters
+---
 
-Adjust these if auto-gating fails:
+Play around with gating parameters if auto-gating fails:
 
 ```r
 M <- build_reference_matrix(
@@ -243,11 +243,11 @@ generate_sample_qc(
 
 ---
 
-## Interactive Matrix Adjustment
+### Optional: Interactive Matrix Adjustment (before Step 4)
 
 For manual fine-tuning, use the web interface.
 
-### First-time setup (once):
+#### First-time setup (once):
 
 ```bash
 # If you are in a source checkout of spectrQC:
@@ -263,7 +263,7 @@ cat(gui_path, "\n")
 # Then in terminal: cd <that path> && npm install
 ```
 
-### Launch the GUI:
+#### Launch the GUI:
 
 ```r
 launch_gui(
@@ -274,7 +274,7 @@ launch_gui(
 
 This starts both the backend API and frontend automatically, opening `localhost:5174` in your browser.
 
-### What To Do After GUI
+#### What To Do After GUI
 
 1. Save your adjusted matrix CSV (typically `scc_unmixing_matrix.csv` or `scc_reference_matrix.csv`).
 2. Run `unmix_samples(...)` on your experimental samples:
@@ -323,7 +323,7 @@ Unmixed intensity vs RRMSE for each marker.
 
 ---
 
-## Output Directories
+### Output Directories
 
 - `gating_plots/`: Gating and spectrum visualizations for each SCC
 - `scc_unmixed/`: Refined matrices and unmixed control files
@@ -333,4 +333,4 @@ Unmixed intensity vs RRMSE for each marker.
 ---
 
 **Author**: Paul Heisig  
-**Email**: pkheisig@gmail.com
+**Email**: p.k.s.heisig@amsterdamumc.nl
