@@ -10,6 +10,7 @@ if (getRversion() >= "2.15.1") {
         "Intensity",
         "Marker",
         "Mean_RRMSE",
+        "metric_value",
         "NPS",
         "RRMSE",
         "Receiving_Marker",

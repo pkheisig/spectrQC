@@ -30,8 +30,28 @@ generate_sample_qc <- function(unmixed_list,
     if (length(unmixed_list) == 0) stop("unmixed_list is empty.")
     
     # Combined data
-    all_data <- data.table::rbindlist(lapply(unmixed_list, `[[`, "data"))
+    sample_names <- names(unmixed_list)
+    if (is.null(sample_names) || any(!nzchar(sample_names))) {
+        sample_names <- paste0("sample_", seq_along(unmixed_list))
+    }
+    data_parts <- lapply(seq_along(unmixed_list), function(i) {
+        nm <- sample_names[[i]]
+        obj <- unmixed_list[[i]]
+        if (is.null(obj) || is.null(obj$data)) return(NULL)
+        d <- as.data.frame(obj$data, stringsAsFactors = FALSE)
+        if (!("File" %in% colnames(d)) || all(is.na(d$File) | trimws(as.character(d$File)) == "")) {
+            d$File <- nm
+        }
+        d
+    })
+    all_data <- as.data.frame(
+        data.table::rbindlist(data_parts, use.names = TRUE, fill = TRUE),
+        stringsAsFactors = FALSE
+    )
     if (nrow(all_data) == 0) stop("No unmixed data found in unmixed_list.")
+    if (!("File" %in% colnames(all_data))) {
+        stop("No 'File' column found in unmixed data after aggregation.")
+    }
     
     # 1. Setup metadata for labels (from first sample if provided)
     
@@ -55,7 +75,7 @@ generate_sample_qc <- function(unmixed_list,
     for (p_idx in seq_len(ceiling(length(all_files) / files_per_page))) {
         start_f <- (p_idx - 1) * files_per_page + 1
         end_f <- min(p_idx * files_per_page, length(all_files))
-        subset_df <- all_data[File %in% all_files[start_f:end_f]]
+        subset_df <- all_data[all_data$File %in% all_files[start_f:end_f], , drop = FALSE]
         p <- plot_scatter_rmse(subset_df, metric = "Relative_RMSE", output_file = file.path(png_dir, paste0("02_rrmse_scatter_pg", p_idx, ".png")))
         grid::grid.newpage()
         grid::pushViewport(grid::viewport(width = grid::unit(180, "mm"), height = grid::unit(180, "mm")))

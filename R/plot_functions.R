@@ -55,6 +55,7 @@ plot_scatter_rmse <- function(data,
         legend_name <- "RRMSE (%)"
         if (is.null(color_limits)) color_limits <- c(0, 5) # Default 0-5% range for RRMSE
     }
+    plot_data$metric_value <- plot_data[[metric]]
 
     # Trim outliers for the plot coordinates
     # IMPORTANT: we arrange BY metric so high values are plotted LAST (on top)
@@ -69,7 +70,14 @@ plot_scatter_rmse <- function(data,
     n_files <- length(unique(plot_data$File))
     ncols <- ceiling(sqrt(n_files))
 
-    p <- ggplot2::ggplot(plot_data, ggplot2::aes_string(x = "FSC-A", y = "SSC-A", color = metric)) +
+    p <- ggplot2::ggplot(
+        plot_data,
+        ggplot2::aes(
+            x = `FSC-A`,
+            y = `SSC-A`,
+            color = metric_value
+        )
+    ) +
         ggplot2::geom_point(size = 0.1, alpha = 0.8) + # Larger and more opaque
         ggplot2::scale_color_gradientn(
             colors = c("gray98", "gray90", "orange", "red", "black"),
@@ -156,6 +164,7 @@ plot_marker_correlations <- function(data,
         y_name <- "RRMSE (%)"
         if (is.null(y_limits)) y_limits <- c(0, 10) # Default 0-10% for correlations
     }
+    plot_data$metric_value <- plot_data[[metric]]
 
     long <- tidyr::pivot_longer(plot_data,
         cols = dplyr::all_of(markers),
@@ -171,7 +180,13 @@ plot_marker_correlations <- function(data,
         ) |>
         dplyr::ungroup()
 
-    p <- ggplot2::ggplot(long, ggplot2::aes_string(x = "Intensity", y = metric)) +
+    p <- ggplot2::ggplot(
+        long,
+        ggplot2::aes(
+            x = Intensity,
+            y = metric_value
+        )
+    ) +
         ggplot2::geom_point(size = 0.1, alpha = 0.1) +
         {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "darkred", linetype = "dashed", linewidth = 0.8, alpha = 0.7)} +
         {if(show_smooth) ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"))} +

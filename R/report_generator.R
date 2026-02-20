@@ -23,6 +23,10 @@
 #' }
 generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf", res_list = NULL, png_dir = "spectrQC_outputs/plots/report_pages", pd = NULL) {
     message("Generating spectrQC Summary Report...")
+    results_df <- as.data.frame(results_df, stringsAsFactors = FALSE)
+    if (!("File" %in% colnames(results_df))) {
+        stop("results_df must contain a 'File' column.")
+    }
     out_dir <- dirname(output_file)
     if (!is.na(out_dir) && nzchar(out_dir) && out_dir != ".") {
         dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
@@ -66,7 +70,7 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
     for (p_idx in seq_len(n_pages_scatter)) {
         start_f <- (p_idx - 1) * files_per_page + 1
         end_f <- min(p_idx * files_per_page, length(all_files))
-        subset_df <- results_df[File %in% all_files[start_f:end_f]]
+        subset_df <- results_df[results_df$File %in% all_files[start_f:end_f], , drop = FALSE]
         p_scatter <- plot_scatter_rmse(subset_df, metric = "Relative_RMSE", output_file = file.path(png_dir, paste0("04_rrmse_scatter_pg", p_idx, ".png") ), color_limits = c(0, 5))
         if (!is.null(p_scatter)) {
             grid::grid.newpage()
