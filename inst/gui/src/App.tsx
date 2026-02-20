@@ -28,11 +28,11 @@ const COLOR_PALETTES = {
 
 const SCATTER_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 const DRAG_SENSITIVITY_PRESETS = [
-    { label: 'Very Fine', value: 0.25 },
-    { label: 'Fine', value: 0.5 },
-    { label: 'Normal', value: 1 },
-    { label: 'Coarse', value: 2 },
-    { label: 'Aggressive', value: 4 }
+    { label: 'Very Fine', value: 0.01 },
+    { label: 'Fine', value: 0.03 },
+    { label: 'Normal', value: 0.05 },
+    { label: 'Coarse', value: 0.08 },
+    { label: 'Aggressive', value: 0.1 }
 ];
 
 const App = () => {
@@ -60,7 +60,7 @@ const App = () => {
     const [pointSize, setPointSize] = useState(1.5);
     const [pointOpacity, setPointOpacity] = useState(0.5);
     const [pointColor, setPointColor] = useState('#3b82f6');
-    const [dragSensitivity, setDragSensitivity] = useState(1);
+    const [dragSensitivity, setDragSensitivity] = useState(0.05);
 
     const [theme, setTheme] = useState<'dark' | 'light'>('light');
     const [pageScroll, setPageScroll] = useState(true);
@@ -576,14 +576,14 @@ const App = () => {
                             </select>
                             <input
                                 type="range"
-                                min="0.1"
-                                max="8"
-                                step="0.1"
+                                min="0.01"
+                                max="0.1"
+                                step="0.01"
                                 value={dragSensitivity}
                                 onChange={e => setDragSensitivity(Number(e.target.value))}
                                 style={{ width: 90 }}
                             />
-                            <input type="number" min="0.1" max="8" step="0.1" value={dragSensitivity} onChange={e => setDragSensitivity(Math.max(0.1, Math.min(8, Number(e.target.value))))} style={{
+                            <input type="number" min="0.01" max="0.1" step="0.01" value={dragSensitivity} onChange={e => setDragSensitivity(Math.max(0.01, Math.min(0.1, Number(e.target.value))))} style={{
                                 width: 50,
                                 fontSize: 12,
                                 background: g.inputBg,
@@ -651,7 +651,6 @@ const App = () => {
                                                             pointOpacity={pointOpacity}
                                                             pointSize={pointSize}
                                                             sensitivity={dragSensitivity}
-                                                            isUnmixingMatrix={isUnmixingMatrix}
                                                             onAdjust={handleResidualAdjust}
                                                         />
                                                     </div>

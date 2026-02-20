@@ -9,7 +9,6 @@ interface ResidualPlotProps {
   pointOpacity: number;
   pointSize: number;
   sensitivity: number;
-  isUnmixingMatrix: boolean;
   onAdjust: (xKey: string, yKey: string, alpha: number) => void;
 }
 
@@ -22,7 +21,6 @@ const ResidualPlot: React.FC<ResidualPlotProps> = ({
   pointOpacity,
   pointSize,
   sensitivity,
-  isUnmixingMatrix,
   onAdjust
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -206,20 +204,13 @@ const ResidualPlot: React.FC<ResidualPlotProps> = ({
     const baseAlpha = 0.00005 * sensitivity;
 
     if (absX > absY) {
+      // Horizontal drag: adjust Y based on X (intuitive left-right correction).
       const alpha = -dataDeltaX * baseAlpha;
-      if (isUnmixingMatrix) {
-        onAdjust(xKey, yKey, alpha);
-      } else {
-        // Reference-matrix editing behaves transposed after OLS inversion.
-        onAdjust(yKey, xKey, alpha);
-      }
+      onAdjust(xKey, yKey, alpha);
     } else {
+      // Vertical drag: adjust X based on Y (intuitive up-down correction).
       const alpha = -dataDeltaY * baseAlpha;
-      if (isUnmixingMatrix) {
-        onAdjust(yKey, xKey, alpha);
-      } else {
-        onAdjust(xKey, yKey, alpha);
-      }
+      onAdjust(yKey, xKey, alpha);
     }
 
     setIsDragging(false);
