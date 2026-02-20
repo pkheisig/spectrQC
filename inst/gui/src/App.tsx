@@ -30,6 +30,10 @@ const SCATTER_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '
 const App = () => {
     const [matrices, setMatrices] = useState<string[]>([]);
     const [currentFile, setCurrentFile] = useState('refined_reference_matrix.csv');
+    const [sampleFiles, setSampleFiles] = useState<string[]>([]);
+    const [currentSample, setCurrentSample] = useState('');
+    const [configFiles, setConfigFiles] = useState<string[]>([]);
+    const [currentConfig, setCurrentConfig] = useState('gui_config.json');
     const [matrix, setMatrix] = useState<MatrixRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [detectors, setDetectors] = useState<string[]>([]);
@@ -40,6 +44,7 @@ const App = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [isUnmixingMatrix, setIsUnmixingMatrix] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [configStatus, setConfigStatus] = useState<'idle' | 'saving' | 'saved' | 'loading'>('idle');
 
     const [lineWidth, setLineWidth] = useState(0.8);
     const [lineOpacity, setLineOpacity] = useState(0.85);
@@ -57,17 +62,45 @@ const App = () => {
     const [theme, setTheme] = useState<'dark' | 'light'>('light');
     const [pageScroll, setPageScroll] = useState(true);
 
-    useEffect(() => {
-        fetchMatrices();
-        fetchData();
-    }, []);
-
     const fetchMatrices = async () => {
         const res = await axios.get(`${API_BASE}/matrices`);
-        setMatrices(Array.isArray(res.data) ? res.data : []);
+        const list = Array.isArray(res.data) ? res.data : [];
+        setMatrices(list);
+        return list;
     };
 
-    const fetchData = async (filename = currentFile) => {
+    const fetchSamples = async () => {
+        const res = await axios.get(`${API_BASE}/samples`);
+        const list = Array.isArray(res.data) ? res.data : [];
+        setSampleFiles(list);
+        return list;
+    };
+
+    const fetchConfigs = async () => {
+        const res = await axios.get(`${API_BASE}/configs`);
+        const list = Array.isArray(res.data) ? res.data : [];
+        setConfigFiles(list);
+        if (list.length > 0 && !list.includes(currentConfig)) {
+            setCurrentConfig(list[0]);
+        }
+        return list;
+    };
+
+    const fetchSampleData = async (sampleName: string, matrixData: any[], filenameForType: string, detNames: string[]) => {
+        const q = sampleName && sampleName.length > 0
+            ? `?sample_name=${encodeURIComponent(sampleName)}`
+            : '';
+        const resData = await axios.get(`${API_BASE}/data${q}`);
+        if (!resData.data.error) {
+            const raw = resData.data.raw_data;
+            setRawData(raw);
+            setDetectorLabels(resData.data.detector_labels || detNames);
+            if (resData.data.sample_name) setCurrentSample(resData.data.sample_name);
+            await runUnmix(matrixData, raw, filenameForType);
+        }
+    };
+
+    const fetchData = async (filename = currentFile, sampleName = currentSample) => {
         setLoading(true);
         const resMatrix = await axios.get(`${API_BASE}/load_matrix?filename=${filename}`);
         if (!resMatrix.data.error) {
@@ -79,17 +112,24 @@ const App = () => {
             setDetectors(detNames);
             const allMarkers = matrixData.map((r: any) => r.Marker);
             setSelectedMarkers(allMarkers);
-            const resData = await axios.get(`${API_BASE}/data`);
-            if (!resData.data.error) {
-                const raw = resData.data.raw_data;
-                setRawData(raw);
-                setDetectorLabels(resData.data.detector_labels || detNames);
-                await runUnmix(matrixData, raw, filename);
-            }
+            const activeSample = sampleName && sampleName.length > 0 ? sampleName : (sampleFiles[0] || '');
+            await fetchSampleData(activeSample, matrixData, filename, detNames);
         }
         setCurrentFile(filename);
         setLoading(false);
     };
+
+    useEffect(() => {
+        const init = async () => {
+            const [mats, samples] = await Promise.all([fetchMatrices(), fetchSamples()]);
+            await fetchConfigs();
+            const firstMatrix = mats.includes(currentFile) ? currentFile : (mats[0] || currentFile);
+            const firstSample = samples[0] || '';
+            if (firstSample) setCurrentSample(firstSample);
+            await fetchData(firstMatrix, firstSample);
+        };
+        init();
+    }, []);
 
     const runUnmix = async (currentM: any[], currentRaw: any[], filename = currentFile) => {
         const M_obj: any = {};
@@ -144,6 +184,76 @@ const App = () => {
         } else {
             setSaveStatus('idle');
         }
+    };
+
+    const applyConfig = (cfg: any) => {
+        if (!cfg || typeof cfg !== 'object') return;
+        if (typeof cfg.lineWidth === 'number') setLineWidth(cfg.lineWidth);
+        if (typeof cfg.lineOpacity === 'number') setLineOpacity(cfg.lineOpacity);
+        if (typeof cfg.colorPalette === 'string' && cfg.colorPalette in COLOR_PALETTES) {
+            setColorPalette(cfg.colorPalette as keyof typeof COLOR_PALETTES);
+        }
+        if (typeof cfg.showControls === 'boolean') setShowControls(cfg.showControls);
+        if (typeof cfg.signatureHeight === 'number') setSignatureHeight(cfg.signatureHeight);
+        if (typeof cfg.signatureDetWidth === 'number') setSignatureDetWidth(cfg.signatureDetWidth);
+        if (typeof cfg.residualCellSize === 'number') setResidualCellSize(cfg.residualCellSize);
+        if (typeof cfg.pointSize === 'number') setPointSize(cfg.pointSize);
+        if (typeof cfg.pointOpacity === 'number') setPointOpacity(cfg.pointOpacity);
+        if (typeof cfg.pointColor === 'string') setPointColor(cfg.pointColor);
+        if (typeof cfg.dragSensitivity === 'number') {
+            setDragSensitivity(Math.max(0.01, Math.min(0.1, cfg.dragSensitivity)));
+        }
+    };
+
+    const buildConfig = () => ({
+        lineWidth,
+        lineOpacity,
+        colorPalette,
+        showControls,
+        signatureHeight,
+        signatureDetWidth,
+        residualCellSize,
+        pointSize,
+        pointOpacity,
+        pointColor,
+        dragSensitivity
+    });
+
+    const saveViewConfig = async () => {
+        const name = currentConfig.trim().length > 0 ? currentConfig.trim() : 'gui_config.json';
+        setConfigStatus('saving');
+        const result = await axios.post(`${API_BASE}/save_config`, {
+            filename: name,
+            config_json: buildConfig()
+        }).catch(() => null);
+        if (result?.data?.success) {
+            const savedName = result.data.filename || name;
+            setCurrentConfig(savedName);
+            await fetchConfigs();
+            setConfigStatus('saved');
+            setTimeout(() => setConfigStatus('idle'), 1500);
+        } else {
+            setConfigStatus('idle');
+        }
+    };
+
+    const loadViewConfig = async (name = currentConfig) => {
+        if (!name || name.trim().length === 0) return;
+        setConfigStatus('loading');
+        const result = await axios.get(`${API_BASE}/load_config?filename=${encodeURIComponent(name)}`).catch(() => null);
+        if (result?.data && !result.data.error) {
+            applyConfig(result.data);
+            setCurrentConfig(name);
+        }
+        setConfigStatus('idle');
+    };
+
+    const handleSampleChange = async (sampleName: string) => {
+        setCurrentSample(sampleName);
+        if (!sampleName || matrix.length === 0) return;
+        setLoading(true);
+        await fetchSampleData(sampleName, matrix, currentFile, detectors);
+        setLoading(false);
     };
 
     const svgRef = useRef<SVGSVGElement>(null);
@@ -342,7 +452,7 @@ const App = () => {
                         <h3 style={{ fontSize: 10, fontWeight: 700, color: g.textMuted, letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: 10 }}>Matrices</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {matrices.map(m => (
-                                <button key={m} onClick={() => fetchData(m)} style={{
+                                <button key={m} onClick={() => fetchData(m, currentSample)} style={{
                                     ...glassButton,
                                     width: '100%',
                                     display: 'flex',
@@ -370,6 +480,97 @@ const App = () => {
                                     </span>
                                 </button>
                             ))}
+                        </div>
+
+                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <h3 style={{ fontSize: 10, fontWeight: 700, color: g.textMuted, letterSpacing: '0.15em', textTransform: 'uppercase', margin: 0 }}>Sample File</h3>
+                            <select
+                                value={currentSample}
+                                onChange={e => void handleSampleChange(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: g.inputBg,
+                                    color: g.text,
+                                    border: `1px solid ${g.glassBorder}`,
+                                    borderRadius: 8,
+                                    padding: '8px 10px',
+                                    fontSize: 12
+                                }}
+                            >
+                                {sampleFiles.length === 0 && <option value="">(no samples found)</option>}
+                                {sampleFiles.map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <h3 style={{ fontSize: 10, fontWeight: 700, color: g.textMuted, letterSpacing: '0.15em', textTransform: 'uppercase', margin: 0 }}>View Config</h3>
+                            <input
+                                value={currentConfig}
+                                onChange={e => setCurrentConfig(e.target.value)}
+                                placeholder="gui_config.json"
+                                style={{
+                                    width: '100%',
+                                    background: g.inputBg,
+                                    color: g.text,
+                                    border: `1px solid ${g.glassBorder}`,
+                                    borderRadius: 8,
+                                    padding: '8px 10px',
+                                    fontSize: 12
+                                }}
+                            />
+                            <select
+                                value={configFiles.includes(currentConfig) ? currentConfig : ''}
+                                onChange={e => setCurrentConfig(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: g.inputBg,
+                                    color: g.text,
+                                    border: `1px solid ${g.glassBorder}`,
+                                    borderRadius: 8,
+                                    padding: '8px 10px',
+                                    fontSize: 12
+                                }}
+                            >
+                                <option value="">Select saved config...</option>
+                                {configFiles.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                    onClick={() => void loadViewConfig(currentConfig)}
+                                    style={{
+                                        ...glassButton,
+                                        flex: 1,
+                                        padding: '8px 10px',
+                                        fontSize: 12,
+                                        color: g.text,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Load
+                                </button>
+                                <button
+                                    onClick={() => void saveViewConfig()}
+                                    style={{
+                                        ...glassButton,
+                                        flex: 1,
+                                        padding: '8px 10px',
+                                        fontSize: 12,
+                                        color: g.text,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Save
+                                </button>
+                            </div>
+                            <span style={{ fontSize: 11, color: g.textMuted }}>
+                                {configStatus === 'saving' ? 'Saving config...' :
+                                    configStatus === 'loading' ? 'Loading config...' :
+                                        configStatus === 'saved' ? 'Config saved.' : ''}
+                            </span>
                         </div>
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>

@@ -10,6 +10,25 @@ get_samples_dir <- function() {
     normalizePath(getOption("spectrqc.samples_dir", default_samples), mustWork = FALSE)
 }
 
+get_config_dir <- function() {
+    cfg_dir <- file.path(get_matrix_dir(), "gui_configs")
+    if (!dir.exists(cfg_dir)) {
+        dir.create(cfg_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+    cfg_dir
+}
+
+normalize_config_filename <- function(filename) {
+    if (is.null(filename) || !nzchar(trimws(filename))) {
+        return("gui_config.json")
+    }
+    out <- basename(trimws(filename))
+    if (!grepl("\\.json$", out, ignore.case = TRUE)) {
+        out <- paste0(out, ".json")
+    }
+    out
+}
+
 #* @filter logger
 function(req) {
     cat(as.character(Sys.time()), "-", req$REQUEST_METHOD, req$PATH_INFO, "\n")
@@ -40,6 +59,50 @@ function() {
     files <- list.files(get_matrix_dir(), pattern = ".*\\.csv$")
     # Return all CSVs
     return(as.character(files))
+}
+
+#* List available sample files
+#* @get /samples
+function() {
+    samples_dir <- get_samples_dir()
+    if (!dir.exists(samples_dir)) return(character(0))
+    files <- list.files(samples_dir, pattern = "\\.fcs$", ignore.case = TRUE)
+    return(as.character(sort(files)))
+}
+
+#* List GUI config presets
+#* @get /configs
+function() {
+    cfg_dir <- get_config_dir()
+    files <- list.files(cfg_dir, pattern = "\\.json$", ignore.case = TRUE)
+    return(as.character(sort(files)))
+}
+
+#* Load GUI config preset
+#* @get /load_config
+#* @param filename
+function(filename) {
+    cfg_name <- normalize_config_filename(filename)
+    path <- file.path(get_config_dir(), cfg_name)
+    if (!file.exists(path)) {
+        return(list(error = paste("Config file not found:", path)))
+    }
+    cfg <- jsonlite::fromJSON(path, simplifyVector = TRUE)
+    return(cfg)
+}
+
+#* Save GUI config preset
+#* @post /save_config
+function(req) {
+    body <- jsonlite::fromJSON(req$postBody)
+    cfg_name <- normalize_config_filename(body$filename)
+    cfg <- body$config_json
+    if (is.null(cfg)) {
+        return(list(error = "Missing config_json in request body"))
+    }
+    path <- file.path(get_config_dir(), cfg_name)
+    jsonlite::write_json(cfg, path, auto_unbox = TRUE, pretty = TRUE, null = "null")
+    return(list(success = TRUE, filename = cfg_name, path = path))
 }
 
 #* Load a specific matrix
@@ -126,7 +189,7 @@ function(filename, content) {
 function(sample_name = NULL) {
     # If no sample provided, take the first one in samples/
     samples_dir <- get_samples_dir()
-    files <- list.files(samples_dir, pattern = "\\.fcs$", full.names = TRUE)
+    files <- sort(list.files(samples_dir, pattern = "\\.fcs$", full.names = TRUE, ignore.case = TRUE))
     if (length(files) == 0) {
         return(list(error = paste0("No FCS files found in samples directory: ", samples_dir)))
     }
@@ -134,11 +197,22 @@ function(sample_name = NULL) {
     if (is.null(sample_name)) {
         sample_path <- files[1]
     } else {
-        sample_path <- file.path(samples_dir, paste0(sample_name, ".fcs"))
-    }
-
-    if (!file.exists(sample_path)) {
-        return(list(error = paste("Sample not found:", sample_path)))
+        sn <- trimws(as.character(sample_name))
+        candidates <- c(
+            file.path(samples_dir, sn),
+            file.path(samples_dir, paste0(sn, ".fcs"))
+        )
+        sample_path <- candidates[file.exists(candidates)][1]
+        if (is.na(sample_path) || !nzchar(sample_path)) {
+            target <- tolower(tools::file_path_sans_ext(basename(sn)))
+            file_ids <- tolower(tools::file_path_sans_ext(basename(files)))
+            idx <- which(file_ids == target)
+            if (length(idx) > 0) {
+                sample_path <- files[idx[1]]
+            } else {
+                return(list(error = paste("Sample not found:", sn)))
+            }
+        }
     }
 
     ff <- flowCore::read.FCS(sample_path, transformation = FALSE, truncate_max_range = FALSE)
@@ -167,6 +241,7 @@ function(sample_name = NULL) {
 
     return(list(
         raw_data = as.data.frame(raw_data),
+        sample_name = basename(sample_path),
         detector_names = det_info$names,
         detector_labels = det_info$labels
     ))
