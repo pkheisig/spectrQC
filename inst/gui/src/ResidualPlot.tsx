@@ -9,6 +9,7 @@ interface ResidualPlotProps {
   pointOpacity: number;
   pointSize: number;
   sensitivity: number;
+  isUnmixingMatrix: boolean;
   onAdjust: (xKey: string, yKey: string, alpha: number) => void;
 }
 
@@ -21,6 +22,7 @@ const ResidualPlot: React.FC<ResidualPlotProps> = ({
   pointOpacity,
   pointSize,
   sensitivity,
+  isUnmixingMatrix,
   onAdjust
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -185,9 +187,9 @@ const ResidualPlot: React.FC<ResidualPlotProps> = ({
     const dataDeltaX = (pixelDeltaX / w) * (xMax - xMin);
     const dataDeltaY = -(pixelDeltaY / h) * (yMax - yMin); // Negative because canvas Y is inverted
 
-    // Determine drag direction: horizontal = adjust Y based on X, vertical = adjust X based on Y
-    // Dragging LEFT (toward Y axis) means remove X spillover from Y
-    // Dragging DOWN (toward X axis) means remove Y spillover from X
+    // Determine drag direction:
+    // horizontal drag should feel like Y-axis correction,
+    // vertical drag should feel like X-axis correction.
 
     const absX = Math.abs(pixelDeltaX);
     const absY = Math.abs(pixelDeltaY);
@@ -200,21 +202,24 @@ const ResidualPlot: React.FC<ResidualPlotProps> = ({
       return;
     }
 
-    // Apply sensitivity multiplier - very small base for fine control
-    const baseAlpha = 0.00001 * sensitivity;
+    // Apply user sensitivity multiplier.
+    const baseAlpha = 0.00005 * sensitivity;
 
     if (absX > absY) {
-      // Horizontal drag dominant - adjust Y to remove X spillover
-      // Dragging left (negative X) = subtract X from Y = negative alpha for onAdjust(X, Y, alpha)
-      // Y_new = Y + alpha * X, so to push Y toward axis, alpha should be negative when dragging left
       const alpha = -dataDeltaX * baseAlpha;
-      onAdjust(xKey, yKey, alpha);
+      if (isUnmixingMatrix) {
+        onAdjust(xKey, yKey, alpha);
+      } else {
+        // Reference-matrix editing behaves transposed after OLS inversion.
+        onAdjust(yKey, xKey, alpha);
+      }
     } else {
-      // Vertical drag dominant - adjust X to remove Y spillover  
-      // Dragging down (negative dataDeltaY) = subtract Y from X
-      // We need to call onAdjust with X as target: onAdjust(yKey, xKey, alpha)
       const alpha = -dataDeltaY * baseAlpha;
-      onAdjust(yKey, xKey, alpha);
+      if (isUnmixingMatrix) {
+        onAdjust(yKey, xKey, alpha);
+      } else {
+        onAdjust(xKey, yKey, alpha);
+      }
     }
 
     setIsDragging(false);

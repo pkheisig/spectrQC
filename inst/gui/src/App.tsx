@@ -27,6 +27,13 @@ const COLOR_PALETTES = {
 };
 
 const SCATTER_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+const DRAG_SENSITIVITY_PRESETS = [
+    { label: 'Very Fine', value: 0.25 },
+    { label: 'Fine', value: 0.5 },
+    { label: 'Normal', value: 1 },
+    { label: 'Coarse', value: 2 },
+    { label: 'Aggressive', value: 4 }
+];
 
 const App = () => {
     const [matrices, setMatrices] = useState<string[]>([]);
@@ -53,7 +60,7 @@ const App = () => {
     const [pointSize, setPointSize] = useState(1.5);
     const [pointOpacity, setPointOpacity] = useState(0.5);
     const [pointColor, setPointColor] = useState('#3b82f6');
-    const [dragSensitivity, setDragSensitivity] = useState(0.5);
+    const [dragSensitivity, setDragSensitivity] = useState(1);
 
     const [theme, setTheme] = useState<'dark' | 'light'>('light');
     const [pageScroll, setPageScroll] = useState(true);
@@ -550,9 +557,33 @@ const App = () => {
                             <span style={{ fontSize: 11, color: '#fb7185', fontWeight: 600, marginLeft: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <Sliders size={12} /> Drag on plots to adjust crosstalk
                             </span>
-                            <span style={{ fontSize: 12, color: g.textMuted, marginLeft: 8 }}>Sens:</span>
-                            <input type="range" min="0.01" max="1" step="0.01" value={dragSensitivity} onChange={e => setDragSensitivity(Number(e.target.value))} style={{ width: 60 }} />
-                            <input type="number" min="0.01" max="1" step="0.01" value={dragSensitivity} onChange={e => setDragSensitivity(Math.max(0.01, Math.min(1, Number(e.target.value))))} style={{
+                            <span style={{ fontSize: 12, color: g.textMuted, marginLeft: 8 }}>Drag Sensitivity:</span>
+                            <select
+                                value={String(dragSensitivity)}
+                                onChange={e => setDragSensitivity(Number(e.target.value))}
+                                style={{
+                                    fontSize: 12,
+                                    background: g.inputBg,
+                                    color: g.text,
+                                    border: `1px solid ${g.glassBorder}`,
+                                    borderRadius: 6,
+                                    padding: '4px 8px'
+                                }}
+                            >
+                                {DRAG_SENSITIVITY_PRESETS.map(p => (
+                                    <option key={p.label} value={p.value}>{p.label}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="range"
+                                min="0.1"
+                                max="8"
+                                step="0.1"
+                                value={dragSensitivity}
+                                onChange={e => setDragSensitivity(Number(e.target.value))}
+                                style={{ width: 90 }}
+                            />
+                            <input type="number" min="0.1" max="8" step="0.1" value={dragSensitivity} onChange={e => setDragSensitivity(Math.max(0.1, Math.min(8, Number(e.target.value))))} style={{
                                 width: 50,
                                 fontSize: 12,
                                 background: g.inputBg,
@@ -620,6 +651,7 @@ const App = () => {
                                                             pointOpacity={pointOpacity}
                                                             pointSize={pointSize}
                                                             sensitivity={dragSensitivity}
+                                                            isUnmixingMatrix={isUnmixingMatrix}
                                                             onAdjust={handleResidualAdjust}
                                                         />
                                                     </div>
