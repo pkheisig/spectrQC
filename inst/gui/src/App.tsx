@@ -27,14 +27,6 @@ const COLOR_PALETTES = {
 };
 
 const SCATTER_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-const DRAG_SENSITIVITY_PRESETS = [
-    { label: 'Very Fine', value: 0.01 },
-    { label: 'Fine', value: 0.03 },
-    { label: 'Normal', value: 0.05 },
-    { label: 'Coarse', value: 0.08 },
-    { label: 'Aggressive', value: 0.1 }
-];
-
 const App = () => {
     const [matrices, setMatrices] = useState<string[]>([]);
     const [currentFile, setCurrentFile] = useState('refined_reference_matrix.csv');
@@ -558,22 +550,6 @@ const App = () => {
                                 <Sliders size={12} /> Drag on plots to adjust crosstalk
                             </span>
                             <span style={{ fontSize: 12, color: g.textMuted, marginLeft: 8 }}>Drag Sensitivity:</span>
-                            <select
-                                value={String(dragSensitivity)}
-                                onChange={e => setDragSensitivity(Number(e.target.value))}
-                                style={{
-                                    fontSize: 12,
-                                    background: g.inputBg,
-                                    color: g.text,
-                                    border: `1px solid ${g.glassBorder}`,
-                                    borderRadius: 6,
-                                    padding: '4px 8px'
-                                }}
-                            >
-                                {DRAG_SENSITIVITY_PRESETS.map(p => (
-                                    <option key={p.label} value={p.value}>{p.label}</option>
-                                ))}
-                            </select>
                             <input
                                 type="range"
                                 min="0.01"
@@ -581,17 +557,11 @@ const App = () => {
                                 step="0.01"
                                 value={dragSensitivity}
                                 onChange={e => setDragSensitivity(Number(e.target.value))}
-                                style={{ width: 90 }}
+                                style={{ width: 110 }}
                             />
-                            <input type="number" min="0.01" max="0.1" step="0.01" value={dragSensitivity} onChange={e => setDragSensitivity(Math.max(0.01, Math.min(0.1, Number(e.target.value))))} style={{
-                                width: 50,
-                                fontSize: 12,
-                                background: g.inputBg,
-                                color: g.text,
-                                border: `1px solid ${g.glassBorder}`,
-                                borderRadius: 6,
-                                padding: '4px 8px'
-                            }} />
+                            <span style={{ width: 42, fontSize: 12, color: g.text, fontVariantNumeric: 'tabular-nums' }}>
+                                {dragSensitivity.toFixed(2)}
+                            </span>
                         </div>
                         <div style={{ ...glassCard, padding: 12, overflow: 'auto', maxHeight: pageScroll ? 'none' : 'calc(100% - 40px)' }}>
                             <div style={{ display: 'inline-block' }}>
