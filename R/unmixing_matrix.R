@@ -16,6 +16,7 @@
 #' W
 #' @export
 derive_unmixing_matrix <- function(M, method = "OLS", global_weights = NULL) {
+    M <- .as_reference_matrix(M, "M")
     # M is Markers (m) x Detectors (d)
     Mt <- t(M) # Detectors x Markers
     

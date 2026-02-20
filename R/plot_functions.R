@@ -223,6 +223,7 @@ plot_spectra <- function(ref_matrix,
                          unit = "mm",
                          dpi = 600,
                          theme_custom = NULL) {
+    ref_matrix <- .as_reference_matrix(ref_matrix, "ref_matrix")
     detectors <- colnames(ref_matrix)
     
     # 1. Get Sorted Detectors and Labels

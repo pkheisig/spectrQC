@@ -18,6 +18,7 @@
 #' }
 #' @export
 plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "detector_residuals.png", width = 250, height = 120, pd = NULL) {
+    M <- .as_reference_matrix(M, "M")
     data <- res_list$data
     residuals <- res_list$residuals
     

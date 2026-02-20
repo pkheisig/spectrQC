@@ -15,6 +15,7 @@
 #' ssm
 #' @export
 calculate_ssm <- function(M, method = "OLS", background_noise = 100) {
+    M <- .as_reference_matrix(M, "M")
     # This function estimates unmixing-induced spread analytically.
     # Spreading error is proportional to the square root of signal intensity.
     # The analytical estimate for spread in unmixed space is:

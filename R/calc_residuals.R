@@ -22,6 +22,7 @@
 #' @export
 calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS", 
                           background_noise = 25, return_residuals = FALSE) {
+    M <- .as_reference_matrix(M, "M")
     full_data <- flowCore::exprs(flow_frame)
     detectors <- colnames(M)
     

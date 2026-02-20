@@ -33,6 +33,9 @@ unmix_samples <- function(sample_dir = "samples",
                           cytometer = "Aurora",
                           output_dir = file.path("spectrQC_outputs", "unmix_samples"),
                           write_fcs = TRUE) {
+    if (!is.null(M)) {
+        M <- .as_reference_matrix(M, "M")
+    }
     dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
     fcs_files <- list.files(sample_dir, pattern = "\\.fcs$", full.names = TRUE)
     
