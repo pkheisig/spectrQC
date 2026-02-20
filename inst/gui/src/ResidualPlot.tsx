@@ -204,12 +204,12 @@ const ResidualPlot: React.FC<ResidualPlotProps> = ({
     const baseAlpha = 0.00005 * sensitivity;
 
     if (absX > absY) {
-      // Horizontal drag: adjust Y based on X.
-      const alpha = dataDeltaX * baseAlpha;
+      // Keep original axis mapping, but invert sign so drag direction is not reversed.
+      const alpha = -dataDeltaX * baseAlpha;
       onAdjust(xKey, yKey, alpha);
     } else {
-      // Vertical drag: adjust X based on Y.
-      const alpha = dataDeltaY * baseAlpha;
+      // Keep original axis mapping, but invert sign so drag direction is not reversed.
+      const alpha = -dataDeltaY * baseAlpha;
       onAdjust(yKey, xKey, alpha);
     }
 
