@@ -13,7 +13,7 @@ get_samples_dir <- function() {
 #* @filter logger
 function(req) {
     cat(as.character(Sys.time()), "-", req$REQUEST_METHOD, req$PATH_INFO, "\n")
-    forward()
+    plumber::forward()
 }
 
 #* @filter cors
