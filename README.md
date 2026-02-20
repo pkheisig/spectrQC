@@ -115,13 +115,6 @@ unmixed <- unmix_samples(
   unmixing_matrix_file = "spectrQC_outputs/autounmix_controls/scc_unmixing_matrix.csv",
   output_dir = "spectrQC_outputs/unmix_samples"
 )
-
-# QC report
-generate_sample_qc(
-  unmixed_list = unmixed,
-  M = ctrl$M,
-  report_file = "Experimental_Sample_Audit.pdf"
-)
 ```
 
 ### Path B: Step-wise manual workflow
@@ -229,20 +222,6 @@ unmixed_w <- unmix_samples(
 
 ---
 
-#### Step 5: QC Experimental Samples
-
-Generate the final quality report:
-
-```r
-generate_sample_qc(
-  unmixed_list = unmixed,
-  M = M_final,
-  report_file = "Sample_QC_Report.pdf"
-)
-```
-
----
-
 ### Optional: Interactive Matrix Adjustment (before Step 4)
 
 For manual fine-tuning, use the web interface.
@@ -280,7 +259,6 @@ This starts both the backend API and frontend automatically, opening `localhost:
 2. Run `unmix_samples(...)` on your experimental samples:
    - if you edited `scc_unmixing_matrix.csv`, pass `unmixing_matrix_file = "..."`
    - if you edited a reference matrix, load it as `M` and pass `M = ...`
-3. Run `generate_sample_qc(...)` for the final audit report.
 
 ---
 

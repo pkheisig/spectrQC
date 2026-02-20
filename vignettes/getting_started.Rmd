@@ -175,28 +175,6 @@ Apply the refined matrix to your experimental data:
 
 ***
 
-# Step 5: Generate Sample QC Report
-
-Create the final quality assessment:
-
-
-    generate_sample_qc(
-      unmixed_list = unmixed,
-      M = M_final,
-      report_file = "Sample_QC_Report.pdf"
-    )
-
-
-**Interpreting results:**
-
-| Plot | Expected | Issues |
-|------|----------|--------|
-| RRMSE scatter | Gray/light cells | Red clusters indicate unmixing failures |
-| Marker correlations | Flat trend lines | Upward trends suggest signature problems |
-| Detector residuals | Small boxplots near zero | Large spikes indicate unaccounted signals |
-
-***
-
 # Interactive Matrix Adjustment
 
 For manual fine-tuning, use the web interface.
@@ -241,7 +219,6 @@ This starts both the backend API and frontend automatically, opening `localhost:
 | `generate_scc_report()` | Generate SCC quality report (PDF) |
 | `refine_scc_matrix()` | Clean matrix using RRMSE filtering |
 | `unmix_samples()` | Unmix experimental FCS files |
-| `generate_sample_qc()` | Generate sample quality report (PDF) |
 | `launch_gui()` | Launch interactive web interface |
 
 ***
