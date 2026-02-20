@@ -206,11 +206,11 @@ const ResidualPlot: React.FC<ResidualPlotProps> = ({
     if (absX > absY) {
       // Horizontal drag should correct Y-direction visually.
       // In current matrix update math, this corresponds to swapping adjust args.
-      const alpha = -dataDeltaX * baseAlpha;
+      const alpha = dataDeltaX * baseAlpha;
       onAdjust(yKey, xKey, alpha);
     } else {
       // Vertical drag should correct X-direction visually.
-      const alpha = -dataDeltaY * baseAlpha;
+      const alpha = dataDeltaY * baseAlpha;
       onAdjust(xKey, yKey, alpha);
     }
 

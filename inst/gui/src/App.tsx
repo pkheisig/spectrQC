@@ -325,7 +325,7 @@ const App = () => {
             <div style={{ flex: 1, display: 'flex', overflow: pageScroll ? 'visible' : 'hidden' }}>
                 {/* Left Sidebar */}
                 <aside style={{
-                    width: 220,
+                    width: 320,
                     flexShrink: 0,
                     borderRight: `1px solid ${g.glassBorder}`,
                     background: g.glassBg,
@@ -346,7 +346,7 @@ const App = () => {
                                     ...glassButton,
                                     width: '100%',
                                     display: 'flex',
-                                    alignItems: 'center',
+                                    alignItems: 'flex-start',
                                     gap: 10,
                                     padding: '10px 14px',
                                     fontSize: 12,
@@ -356,7 +356,18 @@ const App = () => {
                                     textAlign: 'left'
                                 }}>
                                     <FileText size={14} />
-                                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m}</span>
+                                    <span
+                                        title={m}
+                                        style={{
+                                            flex: 1,
+                                            whiteSpace: 'normal',
+                                            overflowWrap: 'anywhere',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.25
+                                        }}
+                                    >
+                                        {m}
+                                    </span>
                                 </button>
                             ))}
                         </div>
