@@ -166,7 +166,7 @@ M <- build_reference_matrix(
 
 ---
 
-### Step 2: Generate SCC Report
+#### Step 2: Generate SCC Report
 
 Review the extracted signatures:
 
@@ -180,7 +180,7 @@ generate_scc_report(
 
 ---
 
-### Step 3: Refine the Matrix
+#### Step 3: Refine the Matrix
 
 Remove outliers using RRMSE-based filtering:
 
@@ -200,7 +200,7 @@ This exports `refined_reference_matrix.csv` and `refined_unmixing_matrix.csv`.
 
 ---
 
-### Step 4: Unmix Experimental Samples
+#### Step 4: Unmix Experimental Samples
 
 Apply the refined matrix to your samples:
 
@@ -229,7 +229,7 @@ unmixed_w <- unmix_samples(
 
 ---
 
-### Step 5: QC Experimental Samples
+#### Step 5: QC Experimental Samples
 
 Generate the final quality report:
 
