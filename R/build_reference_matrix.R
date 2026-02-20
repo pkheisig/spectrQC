@@ -604,7 +604,10 @@ build_reference_matrix <- function(
     colnames(M) <- detector_names
     M_df <- as.data.frame(M)
     M_df$file <- rownames(M_df)
-    utils::write.csv(M_df[, c("file", colnames(M)), drop = FALSE], "reference_matrix.csv", row.names = FALSE, quote = TRUE)
-    message("Reference matrix (", nrow(M), " markers) saved.")
+    output_root <- file.path("spectrQC_outputs")
+    dir.create(output_root, showWarnings = FALSE, recursive = TRUE)
+    reference_matrix_file <- file.path(output_root, "reference_matrix.csv")
+    utils::write.csv(M_df[, c("file", colnames(M)), drop = FALSE], reference_matrix_file, row.names = FALSE, quote = TRUE)
+    message("Reference matrix (", nrow(M), " markers) saved to: ", reference_matrix_file)
     return(M)
 }

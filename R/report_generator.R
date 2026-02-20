@@ -7,7 +7,7 @@
 #' @param M Reference matrix used for unmixing.
 #' @param output_file Output PDF file path.
 #' @param res_list Optional residual object/list from `calc_residuals(..., return_residuals = TRUE)`.
-#' @param png_dir Directory where intermediate PNG pages are saved.
+#' @param png_dir Deprecated and ignored (kept for backward compatibility).
 #' @param pd Optional detector metadata (`flowCore::pData(parameters(ff))`) for axis labels.
 #'
 #' @return Invisibly returns `NULL`; writes report to disk.
@@ -18,11 +18,14 @@
 #' generate_qc_report(
 #'   results_df = results_df,
 #'   M = M,
-#'   output_file = "spectrQC_Report.pdf"
+#'   output_file = file.path("spectrQC_outputs", "Sample_QC_Report.pdf")
 #' )
 #' }
-generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf", res_list = NULL, png_dir = "spectrQC_outputs/plots/report_pages", pd = NULL) {
+generate_qc_report <- function(results_df, M, output_file = file.path("spectrQC_outputs", "Sample_QC_Report.pdf"), res_list = NULL, png_dir = NULL, pd = NULL) {
     message("Generating spectrQC Summary Report...")
+    if (!is.null(png_dir)) {
+        warning("png_dir is deprecated and ignored; report output is PDF-only.")
+    }
     results_df <- as.data.frame(results_df, stringsAsFactors = FALSE)
     if (!("File" %in% colnames(results_df))) {
         stop("results_df must contain a 'File' column.")
@@ -31,9 +34,8 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
     if (!is.na(out_dir) && nzchar(out_dir) && out_dir != ".") {
         dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
     }
-    dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
-    
     grDevices::pdf(output_file, width = 11, height = 8.5)
+    on.exit(try(grDevices::dev.off(), silent = TRUE), add = TRUE)
     
     grid::grid.newpage()
     summary_txt <- paste0(
@@ -47,19 +49,19 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
     grid::grid.text(summary_txt, x = 0.5, y = 0.6, just = "center", gp = grid::gpar(fontsize = 15))
     
     message("  - Adding spectra overlay...")
-    p_spectra <- plot_spectra(M, pd = pd, output_file = file.path(png_dir, "01_spectra_overlay.png") )
+    p_spectra <- plot_spectra(M, pd = pd, output_file = NULL)
     if (!is.null(p_spectra)) print(p_spectra)
     
     if (!is.null(res_list)) {
         message("  - Adding detector-level residual diagnostics...")
         rep_res <- if (!is.null(res_list$residuals)) res_list else res_list[[1]]
-        p_det <- plot_detector_residuals(rep_res, M = M, top_n = 50, output_file = file.path(png_dir, "02_detector_residuals.png") )
+        p_det <- plot_detector_residuals(rep_res, M = M, top_n = 50, output_file = NULL)
         if (!is.null(p_det)) print(p_det)
     }
     
     message("  - Adding Spread Matrix...")
     ssm <- calculate_ssm(M)
-    p_ssm <- plot_ssm(ssm, output_file = file.path(png_dir, "03_spectral_spread_matrix.png") )
+    p_ssm <- plot_ssm(ssm, output_file = NULL)
     if (!is.null(p_ssm)) print(p_ssm)
     
     message("  - Adding RRMSE Scatter plots...")
@@ -71,7 +73,7 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
         start_f <- (p_idx - 1) * files_per_page + 1
         end_f <- min(p_idx * files_per_page, length(all_files))
         subset_df <- results_df[results_df$File %in% all_files[start_f:end_f], , drop = FALSE]
-        p_scatter <- plot_scatter_rmse(subset_df, metric = "Relative_RMSE", output_file = file.path(png_dir, paste0("04_rrmse_scatter_pg", p_idx, ".png") ), color_limits = c(0, 5))
+        p_scatter <- plot_scatter_rmse(subset_df, metric = "Relative_RMSE", output_file = NULL, color_limits = c(0, 5))
         if (!is.null(p_scatter)) {
             grid::grid.newpage()
             grid::pushViewport(grid::viewport(width = grid::unit(180, "mm"), height = grid::unit(180, "mm")))
@@ -82,7 +84,7 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
     
     message("  - Adding NPS diagnostics...")
     nps_scores <- calculate_nps(results_df)
-    p_nps <- plot_nps(nps_scores, output_file = file.path(png_dir, "05_nps_diagnostics.png") )
+    p_nps <- plot_nps(nps_scores, output_file = NULL)
     if (!is.null(p_nps)) print(p_nps)
     
     message("  - Adding marker-RRMSE correlation fits...")
@@ -95,7 +97,19 @@ generate_qc_report <- function(results_df, M, output_file = "spectrQC_Report.pdf
         start_m <- (p_idx - 1) * markers_per_page + 1
         end_m <- min(p_idx * markers_per_page, length(all_markers))
         subset_markers <- all_markers[start_m:end_m]
-        p_corr <- plot_marker_correlations(results_df, markers = subset_markers, metric = "Relative_RMSE", output_file = file.path(png_dir, paste0("06_marker_correlations_pg", p_idx, ".png") ), y_limits = c(0, 10))
+        p_corr <- tryCatch(
+            plot_marker_correlations(
+                results_df,
+                markers = subset_markers,
+                metric = "Relative_RMSE",
+                output_file = NULL,
+                y_limits = c(0, 10)
+            ),
+            error = function(e) {
+                warning("Skipping marker correlation page ", p_idx, ": ", conditionMessage(e))
+                NULL
+            }
+        )
         if (!is.null(p_corr)) {
             grid::grid.newpage()
             grid::pushViewport(grid::viewport(width = grid::unit(250, "mm"), height = grid::unit(180, "mm")))

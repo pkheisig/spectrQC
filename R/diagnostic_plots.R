@@ -59,6 +59,30 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
     M_long <- tidyr::pivot_longer(M_overlay, cols = -Fluorophore, names_to = "Detector", values_to = "Signature")
     M_long$Signature <- M_long$Signature * max_res
     M_long$Detector <- factor(M_long$Detector, levels = levels_sorted, labels = labels_sorted)
+
+    # Use signed pseudo-log scaling: expand around 0, compress large magnitudes.
+    y_all <- c(long$Residual, M_long$Signature)
+    y_all <- y_all[is.finite(y_all)]
+    y_breaks <- NULL
+    y_sigma <- 5
+    if (length(y_all) > 0) {
+        max_abs <- max(abs(y_all), na.rm = TRUE)
+        if (is.finite(max_abs) && max_abs > 0) {
+            max_pow <- max(1, ceiling(log10(max_abs)))
+            pos_breaks <- 10^(1:max_pow)
+            pos_breaks <- pos_breaks[pos_breaks <= (max_abs * 1.05)]
+            if (length(pos_breaks) == 0) pos_breaks <- 10
+
+            has_negative <- any(y_all < 0, na.rm = TRUE)
+            if (has_negative) {
+                neg_breaks <- -rev(pos_breaks)
+                y_breaks <- c(neg_breaks, 0, pos_breaks)
+            } else {
+                y_breaks <- c(0, pos_breaks)
+            }
+            y_breaks <- sort(unique(y_breaks))
+        }
+    }
     
     p <- ggplot2::ggplot() +
         # Spectra overlay (background)
@@ -71,6 +95,11 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
         ggplot2::labs(title = paste("Residual Contributions for Top", top_n, "High-Error Cells"),
                       subtitle = "Background: Reference Spectra scaled to max residual. Foreground: Residual distribution.",
                       x = "Detector", y = "Residual Value / Scaled Signature") +
+        ggplot2::scale_y_continuous(
+            trans = scales::pseudo_log_trans(base = 10, sigma = y_sigma),
+            breaks = y_breaks,
+            labels = scales::label_number(accuracy = 1, big.mark = ",", trim = TRUE)
+        ) +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, size = 6))
     

@@ -123,7 +123,7 @@ plot_scatter_rmse <- function(data,
 #' @param unit Plot size unit.
 #' @param dpi Output resolution.
 #' @param max_cells Maximum events sampled before plotting.
-#' @param show_smooth Logical. If TRUE, adds a red trend line (GAM).
+#' @param show_smooth Logical. If TRUE, adds a red trend line.
 #' @param y_limits Optional y-axis limits
 #' @return A `ggplot` object.
 #' @export
@@ -147,9 +147,18 @@ plot_marker_correlations <- function(data,
                                      max_cells = 5000,
                                      y_limits = NULL,
                                      show_smooth = TRUE) {
+    if (!(metric %in% colnames(data))) {
+        stop("Metric column not found in data: ", metric)
+    }
+
     if (is.null(markers)) {
         exclude_cols <- c("RMSE_Score", "Relative_RMSE", "File", "FSC-A", "SSC-A", "FSC-H", "SSC-H")
         markers <- setdiff(colnames(data), exclude_cols)
+    }
+    markers <- intersect(markers, colnames(data))
+    if (length(markers) == 0) {
+        warning("No marker columns available for plot_marker_correlations().")
+        return(NULL)
     }
 
     # Subsample for speed
@@ -170,16 +179,38 @@ plot_marker_correlations <- function(data,
         cols = dplyr::all_of(markers),
         names_to = "Marker", values_to = "Intensity"
     )
+    long <- long |>
+        dplyr::mutate(
+            Intensity = suppressWarnings(as.numeric(Intensity)),
+            metric_value = suppressWarnings(as.numeric(metric_value))
+        ) |>
+        dplyr::filter(is.finite(metric_value))
 
     # Trim top/bottom 0.5% per marker
     long <- long |>
         dplyr::group_by(Marker) |>
+        dplyr::filter(is.finite(Intensity)) |>
         dplyr::filter(
-            Intensity >= quantile(Intensity, 0.005, na.rm=TRUE) &
-                Intensity <= quantile(Intensity, 0.995, na.rm=TRUE)
+            Intensity >= stats::quantile(Intensity, 0.005, na.rm = TRUE, names = FALSE, type = 7) &
+                Intensity <= stats::quantile(Intensity, 0.995, na.rm = TRUE, names = FALSE, type = 7)
         ) |>
         dplyr::ungroup()
 
+    if (nrow(long) == 0) {
+        warning("No finite data available for marker correlation plot after filtering.")
+        return(NULL)
+    }
+
+    smooth_data <- long |>
+        dplyr::group_by(Marker) |>
+        dplyr::filter(
+            dplyr::n() >= 10,
+            dplyr::n_distinct(Intensity) >= 4,
+            dplyr::n_distinct(metric_value) >= 2
+        ) |>
+        dplyr::ungroup()
+
+    n_panels <- length(unique(long$Marker))
     p <- ggplot2::ggplot(
         long,
         ggplot2::aes(
@@ -189,8 +220,8 @@ plot_marker_correlations <- function(data,
     ) +
         ggplot2::geom_point(size = 0.1, alpha = 0.1) +
         {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "darkred", linetype = "dashed", linewidth = 0.8, alpha = 0.7)} +
-        {if(show_smooth) ggplot2::geom_smooth(method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"))} +
-        ggplot2::facet_wrap(~Marker, scales = "free_x", ncol = ceiling(length(markers) / 3)) +
+        {if(show_smooth && nrow(smooth_data) > 0) ggplot2::geom_smooth(data = smooth_data, method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"), se = FALSE)} +
+        ggplot2::facet_wrap(~Marker, scales = "free_x", ncol = ceiling(n_panels / 3)) +
         ggplot2::labs(x = "Unmixed Abundance", y = y_name) +
         ggplot2::theme_minimal(base_size = 8) +
         ggplot2::theme(

@@ -123,12 +123,18 @@ plot_scc_diagnostics <- function(M,
     
     p <- ggplot2::ggplot(res, ggplot2::aes(x = RRMSE, fill = Marker)) +
         ggplot2::geom_density(alpha = 0.5) +
-        ggplot2::scale_y_log10() + # Log scale to see tiny outlier peaks
+        ggplot2::scale_y_continuous(
+            expand = ggplot2::expansion(mult = c(0, 0.05))
+        ) +
+        ggplot2::scale_x_continuous(
+            trans = scales::pseudo_log_trans(base = 10),
+            breaks = c(0, 0.5, 1, 2, 5, 10, 20, 50, 100, 500, 1000, 5000, 10000)
+        ) +
         ggplot2::geom_vline(xintercept = 5, linetype = "dashed", color = "red") +
         ggplot2::facet_wrap(~Marker, scales = "free_y") +
         ggplot2::labs(title = "SCC Spectral Consistency (Initial Pass)",
-             subtitle = "Dashed red line = 5% cutoff. Y-axis is LOG SCALE to highlight rare outliers.",
-             x = "RRMSE (%)", y = "Density (Log)") +
+             subtitle = "Dashed red line = 5% cutoff. X-axis uses pseudo-log scaling for low-RRMSE separation; Y-axis is linear density.",
+             x = "RRMSE (%)", y = "Density") +
         ggplot2::theme_minimal() +
         ggplot2::theme(legend.position = "none")
     

@@ -7,9 +7,9 @@
 generate_qc_report(
   results_df,
   M,
-  output_file = "spectrQC_Report.pdf",
+  output_file = file.path("spectrQC_outputs", "Sample_QC_Report.pdf"),
   res_list = NULL,
-  png_dir = "spectrQC_outputs/plots/report_pages",
+  png_dir = NULL,
   pd = NULL
 )
 }
@@ -22,7 +22,7 @@ generate_qc_report(
 
 \item{res_list}{Optional residual object/list from `calc_residuals(..., return_residuals = TRUE)`.}
 
-\item{png_dir}{Directory where intermediate PNG pages are saved.}
+\item{png_dir}{Deprecated and ignored (kept for backward compatibility).}
 
 \item{pd}{Optional detector metadata (`flowCore::pData(parameters(ff))`) for axis labels.}
 }
@@ -40,7 +40,7 @@ args(generate_qc_report)
 generate_qc_report(
   results_df = results_df,
   M = M,
-  output_file = "spectrQC_Report.pdf"
+  output_file = file.path("spectrQC_outputs", "Sample_QC_Report.pdf")
 )
 }
 }

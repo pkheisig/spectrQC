@@ -4,26 +4,28 @@
 #' @param scc_dir Directory containing SCC FCS files.
 #' @param output_file Path to save the PDF report.
 #' @param custom_fluorophores Named vector mapping filenames to fluorophores.
-#' @param png_dir Directory to save individual PNG plots.
+#' @param png_dir Deprecated and ignored (kept for backward compatibility).
 #' @param control_file Path to manual control mapping CSV.
-#' @return Invisibly returns `NULL`; writes SCC audit PDF and PNG panels.
+#' @return Invisibly returns `NULL`; writes SCC audit PDF.
 #' @examples
 #' \dontrun{
 #' generate_scc_report(
 #'   M = M,
 #'   scc_dir = "scc",
-#'   output_file = "SCC_QC_Report.pdf",
+#'   output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf"),
 #'   control_file = "fcs_control_file.csv"
 #' )
 #' }
 #' @export
-generate_scc_report <- function(M, scc_dir = "scc", output_file = "SCC_QC_Report.pdf", custom_fluorophores = NULL, png_dir = "spectrQC_outputs/plots/scc_audit", control_file = "fcs_control_file.csv") {
+generate_scc_report <- function(M, scc_dir = "scc", output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf"), custom_fluorophores = NULL, png_dir = NULL, control_file = "fcs_control_file.csv") {
     message("Generating SCC-only QC Report...")
+    if (!is.null(png_dir)) {
+        warning("png_dir is deprecated and ignored; report output is PDF-only.")
+    }
     out_dir <- dirname(output_file)
     if (!is.na(out_dir) && nzchar(out_dir) && out_dir != ".") {
         dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
     }
-    dir.create(png_dir, showWarnings = FALSE, recursive = TRUE)
 
     # 1. Setup metadata from first file
     fcs_files <- list.files(scc_dir, pattern = "\\.fcs$", full.names = TRUE)
@@ -41,6 +43,7 @@ generate_scc_report <- function(M, scc_dir = "scc", output_file = "SCC_QC_Report
     all_data <- data.table::rbindlist(lapply(res_list, `[[`, "data"))
 
     grDevices::pdf(output_file, width = 11, height = 8.5)
+    on.exit(try(grDevices::dev.off(), silent = TRUE), add = TRUE)
 
     # Page 1: Title
     grid::grid.newpage()
@@ -48,20 +51,20 @@ generate_scc_report <- function(M, scc_dir = "scc", output_file = "SCC_QC_Report
 
     # Page 2: Reference Spectra
     message("  - Adding spectra...")
-    print(plot_spectra(M, pd = pd, output_file = file.path(png_dir, "01_scc_spectra.png")))
+    print(plot_spectra(M, pd = pd, output_file = NULL))
 
     # Page 3: Detector Residuals (REORDERED)
     message("  - Adding residuals...")
-    print(plot_detector_residuals(res_list[[1]], M = M, top_n = 50, output_file = file.path(png_dir, "02_scc_detector_residuals.png"), pd = pd))
+    print(plot_detector_residuals(res_list[[1]], M = M, top_n = 50, output_file = NULL, pd = pd))
 
     # Page 4: SSM
     message("  - Adding SSM...")
     ssm <- calculate_ssm(M)
-    print(plot_ssm(ssm, output_file = file.path(png_dir, "03_scc_ssm.png")))
+    print(plot_ssm(ssm, output_file = NULL))
 
     # Page 5: SCC Diagnostics (Consistency)
     message("  - Adding diagnostics...")
-    print(plot_scc_diagnostics(M, input_folder = scc_dir, custom_fluorophores = custom_fluorophores, output_folder = png_dir, control_file = control_file))
+    print(plot_scc_diagnostics(M, input_folder = scc_dir, custom_fluorophores = custom_fluorophores, output_folder = NULL, control_file = control_file))
 
     grDevices::dev.off()
     message("SCC Report saved to: ", output_file)

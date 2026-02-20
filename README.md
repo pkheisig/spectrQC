@@ -1,6 +1,6 @@
 # spectrQC: Full Spectrum Flow Cytometry Quality Control
 
-`spectrQC` is an R package for validating spectral unmixing accuracy. It provides a complete pipeline to extract fluorophore signatures from single-color controls, refine them using quality metrics, and unmix experimental samples with detailed diagnostic reports.
+`spectrQC` is an R package for validating spectral unmixing accuracy. It provides a complete pipeline to extract fluorophore signatures from single-color controls, refine them using quality metrics, and unmix experimental samples.
 
 ## Key Features
 
@@ -8,7 +8,7 @@
 - **Background Subtraction**: Automatically subtract internal negative populations to isolate pure fluorophore signatures
 - **Signature Refinement**: Remove debris and outliers using RRMSE-based filtering
 - **Per-Cell WLS Unmixing**: High-accuracy unmixing using photon-counting variance weighting
-- **Comprehensive Reports**: PDF reports with spectral overlays, spread matrices, and quality diagnostics
+- **SCC Diagnostics & Visualization**: Spectra and SCC unmixing scatter outputs for control-stage QC
 - **Interactive GUI**: Web-based interface for manual matrix adjustment
 
 ---
@@ -142,7 +142,7 @@ M <- build_reference_matrix(
 )
 ```
 
-This saves gating and spectrum plots to `gating_plots/` and exports `reference_matrix.csv`.
+This saves gating/spectrum plots to `gating_plots/` and exports the matrix to `spectrQC_outputs/reference_matrix.csv`.
 
 ---
 
@@ -162,21 +162,7 @@ M <- build_reference_matrix(
 
 ---
 
-#### Step 2: Generate SCC Report
-
-Review the extracted signatures:
-
-```r
-generate_scc_report(
-  M = M,
-  scc_dir = "scc",
-  output_file = "SCC_QC_Report.pdf"
-)
-```
-
----
-
-#### Step 3: Refine the Matrix
+#### Step 2: Refine the Matrix
 
 Remove outliers using RRMSE-based filtering:
 
@@ -196,7 +182,7 @@ This exports `refined_reference_matrix.csv` and `refined_unmixing_matrix.csv`.
 
 ---
 
-#### Step 4: Unmix Experimental Samples
+#### Step 3: Unmix Experimental Samples
 
 Apply the refined matrix to your samples:
 
@@ -225,7 +211,7 @@ unmixed_w <- unmix_samples(
 
 ---
 
-### Optional: Interactive Matrix Adjustment (before Step 4)
+### Optional: Interactive Matrix Adjustment (before Step 3)
 
 For manual fine-tuning, use the web interface.
 
@@ -259,53 +245,37 @@ launch_gui(
    - if you edited `scc_unmixing_matrix.csv`, pass `unmixing_matrix_file = "..."`
    - if you edited a reference matrix, load it as `M` and pass `M = ...`
 
----
-
-## Understanding the Reports
-
-### Reference Spectra Overlay
-
-Shows the spectral signature of each fluorophore across all detectors.
-
-- **Expected**: Smooth curves with distinct peaks
-- **Issues**: Jagged lines or unexpected peaks indicate gating failures or contamination
-
-### Spectral Spread Matrix
-
-Quantifies how much noise each fluorophore introduces into other channels after unmixing.
-
-- **Expected**: Low values (dark colors) indicate minimal interference
-- **Issues**: High values between two fluorophores indicate spectral similarity, reducing sensitivity for dim co-expressed populations
-
-### RRMSE Scatter Plots
-
-FSC vs SSC colored by Relative Root Mean Square Error, showing unmixing quality per cell.
-
-- **Expected**: Most cells gray or light (RRMSE < 5%)
-- **Issues**: Red clusters indicate populations where unmixing failed — often debris, autofluorescence mismatches, or missing signatures
-
-### Detector Residuals
-
-Boxplots showing the residual signal in each detector for high-error cells.
-
-- **Expected**: Small distributions centered at zero
-- **Issues**: Large positive or negative spikes indicate unaccounted signals (contaminants or missing fluorophores)
-
-### Marker-RRMSE Correlations
-
-Unmixed intensity vs RRMSE for each marker.
-
-- **Expected**: Flat trend line
-- **Issues**: Upward trend indicates incorrect signature or detector non-linearity
-
----
-
 ### Output Directories
 
-- `gating_plots/`: Gating and spectrum visualizations for each SCC
-- `scc_unmixed/`: Refined matrices and unmixed control files
+- `spectrQC_outputs/reference_matrix.csv`: Reference matrix written by `build_reference_matrix(...)`
+- `spectrQC_outputs/autounmix_controls/`: SCC control-stage outputs (`scc_reference_matrix.csv`, `scc_unmixing_matrix.csv/.png`, `scc_spectra.png`, `scc_unmixing_scatter_matrix.png`)
+- `spectrQC_outputs/autounmix_controls/scc_unmixed/`: Unmixed SCC control files (FCS format)
 - `spectrQC_outputs/unmix_samples/`: Unmixed experimental data (FCS format)
-- `spectrQC_outputs/plots/`: Individual PNG exports from reports
+
+If you run the manual path with `build_reference_matrix(...)`, `output_folder` (for example `gating_plots/`) is used for build-stage QC plots.
+
+---
+
+## Legacy Report APIs (Optional)
+
+The package still exports report helpers for legacy workflows, but report generation is not part of the recommended quick workflow.
+Reports now render directly to PDF only (no intermediate PNG files).
+
+```r
+# SCC report (singular function name)
+generate_scc_report(
+  M = ctrl$M,  # reference matrix from build_reference_matrix() or autounmix_controls()$M
+  scc_dir = "scc",
+  output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf")
+)
+
+# Full sample-level report
+r$> generate_qc_report(
+      results_df = do.call(rbind, lapply(unmixed, `[[`, "data")),
+      M = ctrl$M,  # matrix used for unmixing context
+      output_file = file.path("spectrQC_outputs", "Sample_QC_Report.pdf")
+    )
+```
 
 ---
 
