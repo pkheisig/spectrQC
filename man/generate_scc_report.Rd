@@ -7,9 +7,9 @@
 generate_scc_report(
   M,
   scc_dir = "scc",
-  output_file = "SCC_QC_Report.pdf",
+  output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf"),
   custom_fluorophores = NULL,
-  png_dir = "spectrQC_outputs/plots/scc_audit",
+  png_dir = NULL,
   control_file = "fcs_control_file.csv"
 )
 }
@@ -20,14 +20,14 @@ generate_scc_report(
 
 \item{output_file}{Path to save the PDF report.}
 
-\item{custom_fluorophores}{Named vector mapping filenames to fluorophores.}
+\item{custom_fluorophores}{Deprecated and ignored.}
 
-\item{png_dir}{Directory to save individual PNG plots.}
+\item{png_dir}{Deprecated and ignored (kept for backward compatibility).}
 
-\item{control_file}{Path to manual control mapping CSV.}
+\item{control_file}{Deprecated and ignored.}
 }
 \value{
-Invisibly returns `NULL`; writes SCC audit PDF and PNG panels.
+Invisibly returns `NULL`; writes SCC audit PDF.
 }
 \description{
 Generate SCC QC Report
@@ -38,8 +38,7 @@ args(generate_scc_report)
 generate_scc_report(
   M = M,
   scc_dir = "scc",
-  output_file = "SCC_QC_Report.pdf",
-  control_file = "fcs_control_file.csv"
+  output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf")
 )
 }
 }

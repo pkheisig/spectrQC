@@ -89,7 +89,7 @@ plot_ssm <- function(SSM, output_file = "spectral_spread_matrix.png", width = 20
                            size = 4, show.legend = FALSE) +
         ggplot2::scale_color_manual(values = c("TRUE" = "black", "FALSE" = "white")) +
         ggplot2::labs(title = "Spectral Spread Matrix",
-                      subtitle = "Rows: Source of noise (spilling marker). Columns: Destination of noise (receiving marker).\nValues represent the standard deviation increase in column J caused by signal in row I.",
+                      subtitle = "Rows = noise source, columns = noise destination. Good: low off-diagonal spread (darker cells). Bad: bright off-diagonal cells mark problematic marker pairs for dim co-expression.",
                       x = "Receiving Marker (Noise Destination)", y = "Spilling Marker (Noise Source)") +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))

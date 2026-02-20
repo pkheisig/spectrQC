@@ -84,16 +84,30 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
         }
     }
     
+    median_df <- long |>
+        dplyr::group_by(Detector) |>
+        dplyr::summarise(MedianResidual = stats::median(Residual, na.rm = TRUE), .groups = "drop")
+
     p <- ggplot2::ggplot() +
         # Spectra overlay (background)
         ggplot2::geom_line(data = M_long, ggplot2::aes(Detector, Signature, group = Fluorophore, color = Fluorophore), 
                            alpha = 0.5, linewidth = 0.5) +
-        # Residual boxplots (foreground)
-        ggplot2::geom_boxplot(data = long, ggplot2::aes(Detector, Residual), 
-                              outlier.size = 0.5, fill = "steelblue", alpha = 0.6) +
+        # Median residual trend (foreground)
+        ggplot2::geom_line(
+            data = median_df,
+            ggplot2::aes(Detector, MedianResidual, group = 1),
+            color = "black",
+            linewidth = 0.8
+        ) +
+        ggplot2::geom_point(
+            data = median_df,
+            ggplot2::aes(Detector, MedianResidual),
+            color = "black",
+            size = 1.1
+        ) +
         ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
         ggplot2::labs(title = paste("Residual Contributions for Top", top_n, "High-Error Cells"),
-                      subtitle = "Background: Reference Spectra scaled to max residual. Foreground: Residual distribution.",
+                      subtitle = "Good: median residual (black) stays near 0 across detectors. Bad: consistent detector-specific shifts (positive/negative) indicate missing signatures, matrix mismatch, or calibration drift.",
                       x = "Detector", y = "Residual Value / Scaled Signature") +
         ggplot2::scale_y_continuous(
             trans = scales::pseudo_log_trans(base = 10, sigma = y_sigma),
@@ -164,7 +178,7 @@ plot_nps <- function(nps_results, output_file = "nps_plot.png", width = 200) {
     p <- ggplot2::ggplot(nps_results, ggplot2::aes(Marker, NPS, fill = File)) +
         ggplot2::geom_bar(stat = "identity", position = "dodge") +
         ggplot2::labs(title = "Negative Population Spread (Unmixing Noise Floor)",
-                      subtitle = "High MAD indicates unmixing-induced spreading error.\nThis is often caused by spectral overlap with bright markers in the sample.",
+                      subtitle = "Good: low, similar MAD across files and markers. Bad: isolated high bars indicate broad negative-population spread, often from spillover into dim channels.",
                       y = "Spread (MAD)", x = "Unmixed Marker") +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))

@@ -120,6 +120,9 @@ unmixed <- unmix_samples(
 )
 ```
 
+When `M` is not supplied in this static mode, `unmix_samples()` will auto-load
+`scc_reference_matrix.csv` from the same folder (if present) to compute RMSE/RRMSE QC metrics.
+
 ### Path B: Step-wise manual workflow
 
 #### Step 1: Build Reference Matrix
@@ -276,6 +279,21 @@ r$> generate_qc_report(
       output_file = file.path("spectrQC_outputs", "Sample_QC_Report.pdf")
     )
 ```
+
+---
+
+## QC Plot Interpretation Guide
+
+Use the same rule everywhere: first look for consistency across files/markers, then look for outlier structures that repeat in specific channels or populations.
+
+- `Reference Spectra Overlay`: Good = each fluorophore shows a clear dominant detector profile with smooth shape. Bad = noisy, flattened, or unexpectedly broad/overlapping profiles. Action = recheck SCC gating, fluorophore labels, and control quality.
+- `Unmixing Matrix Coefficients`: Good = strongest coefficients align with expected detector-marker relationships and off-target coefficients are moderate. Bad = many large off-target coefficients across rows. Action = inspect collinear markers, low-quality controls, or unstable matrix inversion.
+- `Unmixing Scatter Matrix` (SCC controls): Good = row-stain events are high on Y while X (other markers) stays near zero. Bad = large off-axis/off-target clouds in lower-triangle panels. Action = inspect spillover-heavy pairs and verify single-stain identity.
+- `Spectral Spread Matrix`: Good = mostly low off-diagonal spread values. Bad = bright/high off-diagonal cells for specific marker pairs. Action = avoid those pairs for dim co-expression readouts or adjust panel design.
+- `Morphology vs Unmixing Error` (FSC/SSC colored by RRMSE): Good = most cells remain low-error without regional hotspots. Bad = concentrated high-error clusters in FSC/SSC space. Action = tighten debris/doublet/dead-cell gates and confirm matrix fit for that population.
+- `Marker Intensity vs Unmixing Error`: Good = trend stays flat or decreases with intensity; most events remain below 5% RRMSE. Bad = upward trend as intensity increases. Action = revisit that marker signature and detector behavior (linearity/saturation).
+- `Residual Contributions`: Good = median residual per detector stays near zero. Bad = systematic positive/negative shifts in specific detectors. Action = investigate missing fluorophores, detector drift, or matrix mismatch in affected detector groups.
+- `Negative Population Spread (NPS)`: Good = low and comparable MAD across files and markers. Bad = isolated high bars in selected markers/files. Action = identify bright spreaders into those channels and rebalance panel usage.
 
 ---
 

@@ -27,7 +27,9 @@ unmixing is performed using matrix multiplication with the transposed W.}
 
 \item{unmixing_matrix_file}{Optional CSV path to a saved unmixing matrix.
 Used when `W` is not supplied. By default this points to the matrix produced
-by [autounmix_controls()].}
+by [autounmix_controls()]. In static mode, if `M` is not supplied,
+spectrQC attempts to auto-load a paired reference matrix from the same
+directory (for QC metrics).}
 
 \item{method}{Unmixing method ("WLS", "OLS", "NNLS", or "AutoSpectral").}
 
@@ -40,7 +42,7 @@ by [autounmix_controls()].}
 \value{
 A named list with one element per sample. Each element contains
   `data` (unmixed abundances + QC metrics when available) and `residuals`
-  (detector residual matrix, `NULL` if no reference matrix is available).
+  (detector residual matrix, `NULL` if no compatible reference matrix is available).
 }
 \description{
 Unmix Experimental Samples

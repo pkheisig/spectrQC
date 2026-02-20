@@ -38,13 +38,25 @@ generate_qc_report <- function(results_df, M, output_file = file.path("spectrQC_
     on.exit(try(grDevices::dev.off(), silent = TRUE), add = TRUE)
     
     grid::grid.newpage()
+    rrmse_values <- suppressWarnings(as.numeric(results_df$Relative_RMSE))
+    rrmse_values <- rrmse_values[is.finite(rrmse_values)]
+    median_rrmse_txt <- if (length(rrmse_values) > 0) {
+        paste0(round(stats::median(rrmse_values) * 100, 2), "%")
+    } else {
+        "NA (not available)"
+    }
+    mean_rrmse_txt <- if (length(rrmse_values) > 0) {
+        paste0(round(mean(rrmse_values) * 100, 2), "%")
+    } else {
+        "NA (not available)"
+    }
     summary_txt <- paste0(
         "spectrQC: Spectral Unmixing Quality Control Report\n",
         "Generated on: ", Sys.time(), "\n\n",
         "Files Processed: ", length(unique(results_df$File)), "\n",
         "Total Markers: ", nrow(M), "\n",
-        "Global Median RRMSE: ", round(median(results_df$Relative_RMSE) * 100, 2), "%\n",
-        "Global Mean RRMSE: ", round(mean(results_df$Relative_RMSE) * 100, 2), "%"
+        "Global Median RRMSE: ", median_rrmse_txt, "\n",
+        "Global Mean RRMSE: ", mean_rrmse_txt
     )
     grid::grid.text(summary_txt, x = 0.5, y = 0.6, just = "center", gp = grid::gpar(fontsize = 15))
     
@@ -122,12 +134,21 @@ generate_qc_report <- function(results_df, M, output_file = file.path("spectrQC_
     grid::grid.newpage()
     high_spread <- which(ssm > 10, arr.ind = TRUE)
     spread_msgs <- if(nrow(high_spread) > 0) sapply(1:nrow(high_spread), function(i) paste0("- ", rownames(ssm)[high_spread[i,1]], " spreads noise heavily into ", colnames(ssm)[high_spread[i,2]])) else "- No extreme noise spread detected between markers."
-    bad_files <- results_df |>
-        dplyr::group_by(File) |>
-        dplyr::summarise(Mean_RRMSE = mean(Relative_RMSE, na.rm = TRUE), .groups = "drop") |>
-        dplyr::filter(Mean_RRMSE > 0.03) |>
-        dplyr::pull(File)
-    rrmse_msgs <- if(length(bad_files) > 0) paste0("- High overall error in: ", paste(bad_files, collapse = ", ")) else "- Overall spectral fit error is low (<3%) for all samples."
+    has_rrmse <- any(is.finite(suppressWarnings(as.numeric(results_df$Relative_RMSE))))
+    if (has_rrmse) {
+        bad_files <- results_df |>
+            dplyr::group_by(File) |>
+            dplyr::summarise(Mean_RRMSE = mean(Relative_RMSE, na.rm = TRUE), .groups = "drop") |>
+            dplyr::filter(is.finite(Mean_RRMSE), Mean_RRMSE > 0.03) |>
+            dplyr::pull(File)
+        rrmse_msgs <- if (length(bad_files) > 0) {
+            paste0("- High overall error in: ", paste(bad_files, collapse = ", "))
+        } else {
+            "- Overall spectral fit error is low (<3%) for all samples."
+        }
+    } else {
+        rrmse_msgs <- "- RRMSE metrics are unavailable in results_df (all NA). Re-run unmix_samples() with a compatible reference matrix for QC."
+    }
     wrap_lines <- function(x, width = 80) paste(strwrap(x, width = width), collapse = "\n")
     rec_txt <- paste0("spectrQC: Conclusions & Recommendations\n\n", "Spectral Spread Analysis:\n", wrap_lines(paste(spread_msgs, collapse = "\n")), "\n\n", "Spectral Fit Analysis:\n", wrap_lines(rrmse_msgs), "\n\n", "General Recommendations:\n", "1. If RRMSE > 5% points cluster in specific FSC/SSC regions, they may be debris.\n", "2. Markers with high spread should not be used to resolve dim co-expressed populations.\n", "3. If detector residuals show laser-specific patterns, check instrument calibration.")
     grid::grid.text(rec_txt, x = 0.1, y = 0.9, just = c("left", "top"), gp = grid::gpar(fontsize = 11, lineheight = 1.2))

@@ -118,7 +118,7 @@ plot_unmixing_matrix <- function(W, pd = NULL) {
                            size = 1.5, show.legend = FALSE, angle = 90) +
         ggplot2::scale_color_manual(values = c("TRUE" = "white", "FALSE" = "black")) +
         ggplot2::labs(title = "Unmixing Matrix Coefficients",
-                      subtitle = "Positive coefficients (red) indicate detector contribution to marker recovery.") +
+                      subtitle = "Good: dominant, stable coefficients align with expected detector-markers. Bad: widespread large-magnitude off-target coefficients suggest collinearity, poor controls, or unstable inversion.") +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1, size = 5))
     

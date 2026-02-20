@@ -7,14 +7,16 @@
 #'   unmixing is performed using matrix multiplication with the transposed W.
 #' @param unmixing_matrix_file Optional CSV path to a saved unmixing matrix.
 #'   Used when `W` is not supplied. By default this points to the matrix produced
-#'   by [autounmix_controls()].
+#'   by [autounmix_controls()]. In static mode, if `M` is not supplied,
+#'   spectrQC attempts to auto-load a paired reference matrix from the same
+#'   directory (for QC metrics).
 #' @param method Unmixing method ("WLS", "OLS", "NNLS", or "AutoSpectral").
 #' @param cytometer Cytometer name used when `method = "AutoSpectral"` (for example `"Aurora"`).
 #' @param output_dir Directory to save unmixed FCS files.
 #' @param write_fcs Logical; if `TRUE`, write unmixed FCS files to `output_dir`.
 #' @return A named list with one element per sample. Each element contains
 #'   `data` (unmixed abundances + QC metrics when available) and `residuals`
-#'   (detector residual matrix, `NULL` if no reference matrix is available).
+#'   (detector residual matrix, `NULL` if no compatible reference matrix is available).
 #' @examples
 #' \dontrun{
 #' unmixed <- unmix_samples(
@@ -33,6 +35,22 @@ unmix_samples <- function(sample_dir = "samples",
                           cytometer = "Aurora",
                           output_dir = file.path("spectrQC_outputs", "unmix_samples"),
                           write_fcs = TRUE) {
+    normalize_key <- function(x) {
+        out <- toupper(trimws(as.character(x)))
+        out <- gsub("[^A-Z0-9]", "", out)
+        out[is.na(out)] <- ""
+        out
+    }
+
+    map_names <- function(source_names, target_names) {
+        source_keys <- normalize_key(source_names)
+        target_keys <- normalize_key(target_names)
+        idx <- match(source_keys, target_keys)
+        mapped <- target_names[idx]
+        mapped[is.na(idx)] <- NA_character_
+        mapped
+    }
+
     if (!is.null(M)) {
         M <- .as_reference_matrix(M, "M")
     }
@@ -66,14 +84,44 @@ unmix_samples <- function(sample_dir = "samples",
         W_mat
     }
 
+    read_reference_matrix_csv <- function(path) {
+        if (!file.exists(path)) stop("reference matrix file not found: ", path)
+        df <- utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
+        .as_reference_matrix(df, paste0("reference matrix file ('", path, "')"))
+    }
+
     using_static_W <- FALSE
     W_use <- NULL
+    auto_loaded_qc_matrix <- FALSE
     if (!is.null(W)) {
         W_use <- as.matrix(W)
         using_static_W <- TRUE
     } else if (is.null(M) && !is.null(unmixing_matrix_file)) {
         W_use <- read_unmixing_matrix_csv(unmixing_matrix_file)
         using_static_W <- TRUE
+    }
+
+    # For static unmixing from CSV, auto-load the paired reference matrix when available
+    # so QC metrics (RMSE/RRMSE) can be computed without extra user inputs.
+    if (is.null(M) && is.null(W) && using_static_W && !is.null(unmixing_matrix_file)) {
+        matrix_dir <- dirname(unmixing_matrix_file)
+        matrix_file <- basename(unmixing_matrix_file)
+        ref_candidates <- unique(c(
+            file.path(matrix_dir, "scc_reference_matrix.csv"),
+            file.path(matrix_dir, sub("unmixing_matrix", "reference_matrix", matrix_file)),
+            file.path(matrix_dir, sub("unmixing", "reference", matrix_file))
+        ))
+        ref_candidates <- ref_candidates[file.exists(ref_candidates)]
+        if (length(ref_candidates) > 0) {
+            M <- read_reference_matrix_csv(ref_candidates[[1]])
+            auto_loaded_qc_matrix <- TRUE
+            message("Auto-loaded reference matrix for QC metrics: ", ref_candidates[[1]])
+        } else {
+            warning(
+                "Static unmixing is using only W/unmixing_matrix_file. ",
+                "No paired reference matrix was found for QC metrics, so RMSE/RRMSE will be NA."
+            )
+        }
     }
 
     if (is.null(M) && !using_static_W) {
@@ -83,7 +131,7 @@ unmix_samples <- function(sample_dir = "samples",
             " - W / unmixing_matrix_file (static unmixing matrix)."
         )
     }
-    if (!is.null(M) && using_static_W) {
+    if (!auto_loaded_qc_matrix && !is.null(M) && using_static_W) {
         message("Both M and W/unmixing_matrix_file provided. Using static unmixing matrix.")
     }
 
@@ -142,17 +190,46 @@ unmix_samples <- function(sample_dir = "samples",
         residuals <- NULL
 
         if (!is.null(M_for_qc)) {
-            common_markers <- intersect(rownames(W_sub), rownames(M_for_qc))
-            common_detectors <- intersect(detectors, colnames(M_for_qc))
-            if (length(common_markers) > 0 && length(common_detectors) > 0) {
-                A_qc <- abundances[, common_markers, drop = FALSE]
-                M_qc <- M_for_qc[common_markers, common_detectors, drop = FALSE]
-                Y_qc <- Y[, common_detectors, drop = FALSE]
+            marker_map <- data.frame(
+                w_name = rownames(W_sub),
+                m_name = map_names(rownames(W_sub), rownames(M_for_qc)),
+                stringsAsFactors = FALSE
+            )
+            marker_map <- marker_map[!is.na(marker_map$m_name) & marker_map$m_name != "", , drop = FALSE]
+            marker_map <- marker_map[!duplicated(marker_map$m_name), , drop = FALSE]
+
+            detector_map <- data.frame(
+                w_name = detectors,
+                m_name = map_names(detectors, colnames(M_for_qc)),
+                stringsAsFactors = FALSE
+            )
+            detector_map <- detector_map[!is.na(detector_map$m_name) & detector_map$m_name != "", , drop = FALSE]
+            detector_map <- detector_map[!duplicated(detector_map$m_name), , drop = FALSE]
+
+            if (nrow(marker_map) > 0 && nrow(detector_map) > 0) {
+                A_qc <- abundances[, marker_map$w_name, drop = FALSE]
+                colnames(A_qc) <- marker_map$m_name
+                M_qc <- M_for_qc[marker_map$m_name, detector_map$m_name, drop = FALSE]
+                Y_qc <- Y[, detector_map$w_name, drop = FALSE]
+                colnames(Y_qc) <- detector_map$m_name
                 fitted <- A_qc %*% M_qc
                 residuals <- Y_qc - fitted
-                rmse <- sqrt(rowMeans(residuals^2))
-                relative_rmse <- rmse / pmax(rowSums(Y_qc), 1)
+                rmse <- sqrt(rowMeans(residuals^2, na.rm = TRUE))
+                rmse[rowSums(is.finite(residuals)) == 0] <- NA_real_
+                total_intensity <- rowSums(Y_qc, na.rm = TRUE)
+                relative_rmse <- rmse / pmax(total_intensity, 1)
+                relative_rmse[!is.finite(relative_rmse)] <- NA_real_
+            } else {
+                warning(
+                    "QC metrics unavailable for sample '", file_name,
+                    "': static unmixing matrix and reference matrix have no compatible marker/detector names."
+                )
             }
+        } else {
+            warning(
+                "QC metrics unavailable for sample '", file_name,
+                "': no reference matrix (M) supplied for static unmixing."
+            )
         }
 
         out <- as.data.frame(abundances)

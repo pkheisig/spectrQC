@@ -56,6 +56,13 @@ plot_scatter_rmse <- function(data,
         if (is.null(color_limits)) color_limits <- c(0, 5) # Default 0-5% range for RRMSE
     }
     plot_data$metric_value <- plot_data[[metric]]
+    if (all(is.na(plot_data$metric_value))) {
+        warning(
+            "All values in '", metric, "' are NA. ",
+            "Points will appear in fallback color. ",
+            "For static unmixing, pass a compatible reference matrix (M) to unmix_samples() to compute QC metrics."
+        )
+    }
 
     # Trim outliers for the plot coordinates
     # IMPORTANT: we arrange BY metric so high values are plotted LAST (on top)
@@ -86,7 +93,12 @@ plot_scatter_rmse <- function(data,
             oob = scales::squish
         ) +
         ggplot2::facet_wrap(~File, scales = "fixed", ncol = ncols) +
-        ggplot2::labs(x = "FSC-A", y = "SSC-A") +
+        ggplot2::labs(
+            title = "Morphology vs Unmixing Error",
+            subtitle = "Good: most events stay low-error (typically <5%) without red/black hotspots. Bad: localized high-error clusters suggest debris, doublets, or spectral mismatch.",
+            x = "FSC-A",
+            y = "SSC-A"
+        ) +
         ggplot2::theme_minimal(base_size = 8) +
         ggplot2::theme(
             aspect.ratio = 1, # Force square facets
@@ -222,7 +234,12 @@ plot_marker_correlations <- function(data,
         {if(metric == "Relative_RMSE") ggplot2::geom_hline(yintercept = 5, color = "darkred", linetype = "dashed", linewidth = 0.8, alpha = 0.7)} +
         {if(show_smooth && nrow(smooth_data) > 0) ggplot2::geom_smooth(data = smooth_data, method = "gam", color = "red", linewidth = 0.5, formula = y ~ s(x, bs = "cs"), se = FALSE)} +
         ggplot2::facet_wrap(~Marker, scales = "free_x", ncol = ceiling(n_panels / 3)) +
-        ggplot2::labs(x = "Unmixed Abundance", y = y_name) +
+        ggplot2::labs(
+            title = "Marker Intensity vs Unmixing Error",
+            subtitle = "Good: trend line is flat/decreasing and most events remain below 5% RRMSE. Bad: upward trend with intensity indicates marker-specific mismatch or detector non-linearity.",
+            x = "Unmixed Abundance",
+            y = y_name
+        ) +
         ggplot2::theme_minimal(base_size = 8) +
         ggplot2::theme(
             aspect.ratio = 1, # Make square
@@ -316,7 +333,12 @@ plot_spectra <- function(ref_matrix,
         ggplot2::geom_line(linewidth = 0.7) +
         ggplot2::theme_minimal() +
         ggplot2::theme(axis.text.x = ggplot2::element_text(size = 5, angle = 90, hjust = 1, vjust = 0.5)) +
-        ggplot2::labs(x = "Detector", y = "Normalized Intensity")
+        ggplot2::labs(
+            title = "Reference Spectra Overlay",
+            subtitle = "Good: each fluorophore shows a clear dominant detector profile with smooth shape. Bad: noisy or unexpectedly broad/overlapping profiles suggest SCC gating or label issues.",
+            x = "Detector",
+            y = "Normalized Intensity"
+        )
 
     if (!is.null(output_file)) {
         ggplot2::ggsave(output_file, p, width = width, height = height, unit = unit, dpi = dpi)
@@ -531,7 +553,10 @@ plot_unmixing_scatter_matrix <- function(
             stroke = 0
         ) +
         ggplot2::facet_grid(panel_row ~ panel_col, drop = FALSE, switch = "y", scales = "free") +
-        ggplot2::labs(title = "Unmixing Scatter Matrix") +
+        ggplot2::labs(
+            title = "Unmixing Scatter Matrix",
+            subtitle = "Good: row-stain events are high on Y and near zero on X (other markers). Bad: large off-axis clouds indicate cross-talk, control mislabeling, or unstable unmixing."
+        ) +
         ggplot2::theme_bw(base_size = 7) +
         ggplot2::theme(
             legend.position = "none",
