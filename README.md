@@ -226,21 +226,7 @@ unmixed_w <- unmix_samples(
 
 For manual fine-tuning, use the web interface.
 
-#### First-time setup (once):
-
-```bash
-# If you are in a source checkout of spectrQC:
-cd inst/gui
-npm install
-```
-
-Or from any R session, resolve the installed GUI path and install once:
-
-```r
-gui_path <- system.file("gui", package = "spectrQC")
-cat(gui_path, "\n")
-# Then in terminal: cd <that path> && npm install
-```
+No terminal setup is required for end users. The bundled GUI is served directly by `launch_gui()`.
 
 #### Launch the GUI:
 
@@ -251,7 +237,17 @@ launch_gui(
 )
 ```
 
-This starts both the backend API and frontend automatically, opening `localhost:5174` in your browser.
+This starts both the backend API and bundled frontend on one port (default `http://localhost:8000`) and opens it in your browser.
+
+Developer mode (optional, for GUI hacking):
+
+```r
+launch_gui(
+  matrix_dir = getwd(),
+  samples_dir = "samples",
+  dev_mode = TRUE
+)
+```
 
 #### What To Do After GUI
 

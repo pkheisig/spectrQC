@@ -8,7 +8,8 @@ launch_gui(
   matrix_dir = getwd(),
   samples_dir = NULL,
   port = 8000,
-  open_browser = TRUE
+  open_browser = TRUE,
+  dev_mode = FALSE
 )
 }
 \arguments{
@@ -19,25 +20,28 @@ launch_gui(
 \item{port}{API port (default: 8000)}
 
 \item{open_browser}{Logical. Open browser automatically? (default: TRUE)}
+
+\item{dev_mode}{Logical. If \code{FALSE} (default), serves bundled GUI assets from the
+package and requires no Node.js/npm on user machines. If \code{TRUE}, starts the Vite
+dev server (\code{npm run dev}) from the GUI source folder.}
 }
 \value{
 Invisibly returns NULL. This function blocks while the API is running.
 }
 \description{
 Starts the backend Plumber API for the interactive matrix adjustment interface.
-The frontend must be started separately by running 'npm run dev' in the gui folder.
+By default, the frontend is served from bundled package assets (no npm required).
 }
 \examples{
 args(launch_gui)
 \dontrun{
-# Start the API with default directories
+# Start API + bundled GUI (recommended)
 launch_gui()
 
 # Start with custom matrix directory
 launch_gui(matrix_dir = "/path/to/my/matrices")
 
-# Then in a separate terminal, run:
-# cd /path/to/spectrQC/gui && npm run dev
-# Open localhost:5174 in your browser
+# Developer mode (uses Vite)
+launch_gui(dev_mode = TRUE)
 }
 }

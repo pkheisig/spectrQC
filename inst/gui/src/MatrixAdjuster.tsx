@@ -1,5 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Play, Save, Check } from 'lucide-react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 
 interface MatrixAdjusterProps {
   unmixedData: any[];
@@ -100,8 +99,6 @@ const MatrixAdjuster: React.FC<MatrixAdjusterProps> = ({ unmixedData, matrix, se
         ctx.setLineDash([]);
         
         // Draw delta text
-        const dx = dragCurrent.x - dragStart.x;
-        const dy = dragCurrent.y - dragStart.y;
         ctx.fillStyle = '#fff';
         ctx.font = '12px sans-serif';
         ctx.fillText(`Aligning...`, dragCurrent.x + 10, dragCurrent.y);

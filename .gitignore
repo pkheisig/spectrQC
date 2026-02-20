@@ -24,7 +24,6 @@ spectrQC_outputs/
 samples/
 scc/
 inst/gui/node_modules/
-inst/gui/dist/
 
 # System files
 .DS_Store
