@@ -70,6 +70,57 @@ function() {
     return(as.character(sort(files)))
 }
 
+#* CORS preflight for import_sample_content
+#* @options /import_sample_content
+function(res) {
+    return("")
+}
+
+#* Import a sample from uploaded binary content
+#* @post /import_sample_content
+function(req) {
+    body <- jsonlite::fromJSON(req$postBody, simplifyVector = FALSE)
+    if (is.null(body)) {
+        return(list(error = "Missing request body"))
+    }
+
+    filename <- if (is.null(body$filename)) "" else as.character(body$filename)[1]
+    content_b64 <- if (is.null(body$content_base64)) "" else as.character(body$content_base64)[1]
+    filename <- trimws(filename)
+
+    if (!nzchar(filename)) {
+        return(list(error = "Missing filename"))
+    }
+    if (!nzchar(content_b64)) {
+        return(list(error = "Missing content_base64"))
+    }
+
+    safe_name <- basename(filename)
+    if (!grepl("\\.fcs$", safe_name, ignore.case = TRUE)) {
+        safe_name <- paste0(safe_name, ".fcs")
+    }
+
+    payload <- tryCatch(
+        jsonlite::base64_dec(content_b64),
+        error = function(e) NULL
+    )
+    if (is.null(payload) || length(payload) == 0) {
+        return(list(error = "Invalid or empty sample content"))
+    }
+
+    samples_dir <- get_samples_dir()
+    if (!dir.exists(samples_dir)) {
+        dir.create(samples_dir, recursive = TRUE, showWarnings = FALSE)
+    }
+
+    dest <- file.path(samples_dir, safe_name)
+    con <- file(dest, open = "wb")
+    on.exit(close(con), add = TRUE)
+    writeBin(payload, con)
+
+    return(list(success = TRUE, filename = safe_name, path = dest))
+}
+
 #* List GUI config presets
 #* @get /configs
 function() {

@@ -105,12 +105,16 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS",
     out$RMSE_Score <- rmse
     out$Relative_RMSE <- relative_rmse
 
-    # Add FSC/SSC if available
+    # Add FSC/SSC scatter channels if available
     all_cols <- colnames(full_data)
-    fsc_col <- grep("^FSC[0-9]*-A$", all_cols, value = TRUE)[1]
-    ssc_col <- grep("^SSC[0-9]*-A$", all_cols, value = TRUE)[1]
-    if (!is.na(fsc_col)) out[["FSC-A"]] <- full_data[, fsc_col]
-    if (!is.na(ssc_col)) out[["SSC-A"]] <- full_data[, ssc_col]
+    fsc_a_col <- grep("^FSC[0-9]*-A$", all_cols, value = TRUE)[1]
+    ssc_a_col <- grep("^SSC[0-9]*-A$", all_cols, value = TRUE)[1]
+    fsc_h_col <- grep("^FSC[0-9]*-H$", all_cols, value = TRUE)[1]
+    ssc_h_col <- grep("^SSC[0-9]*-H$", all_cols, value = TRUE)[1]
+    if (!is.na(fsc_a_col)) out[["FSC-A"]] <- full_data[, fsc_a_col]
+    if (!is.na(ssc_a_col)) out[["SSC-A"]] <- full_data[, ssc_a_col]
+    if (!is.na(fsc_h_col)) out[["FSC-H"]] <- full_data[, fsc_h_col]
+    if (!is.na(ssc_h_col)) out[["SSC-H"]] <- full_data[, ssc_h_col]
 
     if (!is.null(file_name)) out$File <- file_name
 

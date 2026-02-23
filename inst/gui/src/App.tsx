@@ -32,6 +32,8 @@ const App = () => {
     const [currentFile, setCurrentFile] = useState('refined_reference_matrix.csv');
     const [sampleFiles, setSampleFiles] = useState<string[]>([]);
     const [currentSample, setCurrentSample] = useState('');
+    const [sampleImportStatus, setSampleImportStatus] = useState<'idle' | 'importing' | 'loaded' | 'error'>('idle');
+    const [sampleImportMessage, setSampleImportMessage] = useState('');
     const [configFiles, setConfigFiles] = useState<string[]>([]);
     const [currentConfig, setCurrentConfig] = useState('gui_config.json');
     const [matrix, setMatrix] = useState<MatrixRow[]>([]);
@@ -61,6 +63,7 @@ const App = () => {
 
     const [theme, setTheme] = useState<'dark' | 'light'>('light');
     const [pageScroll, setPageScroll] = useState(true);
+    const sampleFileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchMatrices = async () => {
         const res = await axios.get(`${API_BASE}/matrices`);
@@ -254,6 +257,66 @@ const App = () => {
         setLoading(true);
         await fetchSampleData(sampleName, matrix, currentFile, detectors);
         setLoading(false);
+    };
+
+    const readFileAsBase64 = (file: File): Promise<string> =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const result = reader.result;
+                if (typeof result !== 'string') {
+                    reject(new Error('Could not read selected file.'));
+                    return;
+                }
+                const payload = result.split(',')[1] || '';
+                if (!payload) {
+                    reject(new Error('Selected file is empty.'));
+                    return;
+                }
+                resolve(payload);
+            };
+            reader.onerror = () => reject(new Error('Failed reading selected file.'));
+            reader.readAsDataURL(file);
+        });
+
+    const triggerSampleFilePicker = () => {
+        sampleFileInputRef.current?.click();
+    };
+
+    const handleSampleFilePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        setSampleImportStatus('importing');
+        setSampleImportMessage(`Importing ${file.name}...`);
+
+        try {
+            const contentBase64 = await readFileAsBase64(file);
+            const response = await axios.post(`${API_BASE}/import_sample_content`, {
+                filename: file.name,
+                content_base64: contentBase64
+            });
+
+            if (response.data?.error) {
+                throw new Error(String(response.data.error));
+            }
+
+            const importedName = String(response.data?.filename || file.name);
+            await fetchSamples();
+            setSampleImportStatus('loaded');
+            setSampleImportMessage(`Loaded ${importedName}`);
+
+            if (matrix.length > 0) {
+                await handleSampleChange(importedName);
+            } else {
+                setCurrentSample(importedName);
+            }
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Failed to import sample file.';
+            setSampleImportStatus('error');
+            setSampleImportMessage(msg);
+        }
     };
 
     const svgRef = useRef<SVGSVGElement>(null);
@@ -484,6 +547,13 @@ const App = () => {
 
                         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <h3 style={{ fontSize: 10, fontWeight: 700, color: g.textMuted, letterSpacing: '0.15em', textTransform: 'uppercase', margin: 0 }}>Sample File</h3>
+                            <input
+                                ref={sampleFileInputRef}
+                                type="file"
+                                accept=".fcs,.FCS"
+                                style={{ display: 'none' }}
+                                onChange={e => void handleSampleFilePicked(e)}
+                            />
                             <select
                                 value={currentSample}
                                 onChange={e => void handleSampleChange(e.target.value)}
@@ -502,6 +572,30 @@ const App = () => {
                                     <option key={s} value={s}>{s}</option>
                                 ))}
                             </select>
+                            <button
+                                onClick={triggerSampleFilePicker}
+                                disabled={sampleImportStatus === 'importing'}
+                                style={{
+                                    ...glassButton,
+                                    padding: '8px 10px',
+                                    fontSize: 12,
+                                    color: g.text,
+                                    cursor: sampleImportStatus === 'importing' ? 'default' : 'pointer',
+                                    opacity: sampleImportStatus === 'importing' ? 0.7 : 1
+                                }}
+                            >
+                                {sampleImportStatus === 'importing' ? 'Importing...' : 'Open File...'}
+                            </button>
+                            {sampleImportStatus !== 'idle' && (
+                                <span
+                                    style={{
+                                        fontSize: 11,
+                                        color: sampleImportStatus === 'error' ? '#ef4444' : g.textMuted
+                                    }}
+                                >
+                                    {sampleImportMessage}
+                                </span>
+                            )}
                         </div>
 
                         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
