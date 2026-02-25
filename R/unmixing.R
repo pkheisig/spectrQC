@@ -169,18 +169,11 @@ unmix_samples <- function(sample_dir = "samples",
         out$Relative_RMSE <- relative_rmse
 
         all_cols <- colnames(full_data)
-        fsc_a_col <- grep("^FSC[0-9]*-A$", all_cols, value = TRUE)[1]
-        ssc_a_col <- grep("^SSC[0-9]*-A$", all_cols, value = TRUE)[1]
-        fsc_h_col <- grep("^FSC[0-9]*-H$", all_cols, value = TRUE)[1]
-        ssc_h_col <- grep("^SSC[0-9]*-H$", all_cols, value = TRUE)[1]
-        fsc_w_col <- grep("^FSC[0-9]*-W$", all_cols, value = TRUE)[1]
-        ssc_w_col <- grep("^SSC[0-9]*-W$", all_cols, value = TRUE)[1]
-        if (!is.na(fsc_a_col)) out[["FSC-A"]] <- full_data[, fsc_a_col]
-        if (!is.na(ssc_a_col)) out[["SSC-A"]] <- full_data[, ssc_a_col]
-        if (!is.na(fsc_h_col)) out[["FSC-H"]] <- full_data[, fsc_h_col]
-        if (!is.na(ssc_h_col)) out[["SSC-H"]] <- full_data[, ssc_h_col]
-        if (!is.na(fsc_w_col)) out[["FSC-W"]] <- full_data[, fsc_w_col]
-        if (!is.na(ssc_w_col)) out[["SSC-W"]] <- full_data[, ssc_w_col]
+        scatter_cols <- grep("FSC|SSC|SCC", all_cols, value = TRUE, ignore.case = TRUE)
+        scatter_cols <- setdiff(scatter_cols, colnames(out))
+        if (length(scatter_cols) > 0) {
+            out[, scatter_cols] <- as.data.frame(full_data[, scatter_cols, drop = FALSE])
+        }
         out$File <- file_name
 
         list(data = out, residuals = residuals)
@@ -244,18 +237,11 @@ unmix_samples <- function(sample_dir = "samples",
         out$RMSE_Score <- rmse
         out$Relative_RMSE <- relative_rmse
         all_cols <- colnames(full_data)
-        fsc_a_col <- grep("^FSC[0-9]*-A$", all_cols, value = TRUE)[1]
-        ssc_a_col <- grep("^SSC[0-9]*-A$", all_cols, value = TRUE)[1]
-        fsc_h_col <- grep("^FSC[0-9]*-H$", all_cols, value = TRUE)[1]
-        ssc_h_col <- grep("^SSC[0-9]*-H$", all_cols, value = TRUE)[1]
-        fsc_w_col <- grep("^FSC[0-9]*-W$", all_cols, value = TRUE)[1]
-        ssc_w_col <- grep("^SSC[0-9]*-W$", all_cols, value = TRUE)[1]
-        if (!is.na(fsc_a_col)) out[["FSC-A"]] <- full_data[, fsc_a_col]
-        if (!is.na(ssc_a_col)) out[["SSC-A"]] <- full_data[, ssc_a_col]
-        if (!is.na(fsc_h_col)) out[["FSC-H"]] <- full_data[, fsc_h_col]
-        if (!is.na(ssc_h_col)) out[["SSC-H"]] <- full_data[, ssc_h_col]
-        if (!is.na(fsc_w_col)) out[["FSC-W"]] <- full_data[, fsc_w_col]
-        if (!is.na(ssc_w_col)) out[["SSC-W"]] <- full_data[, ssc_w_col]
+        scatter_cols <- grep("FSC|SSC|SCC", all_cols, value = TRUE, ignore.case = TRUE)
+        scatter_cols <- setdiff(scatter_cols, colnames(out))
+        if (length(scatter_cols) > 0) {
+            out[, scatter_cols] <- as.data.frame(full_data[, scatter_cols, drop = FALSE])
+        }
         out$File <- file_name
 
         list(data = out, residuals = residuals)
@@ -306,7 +292,7 @@ unmix_samples <- function(sample_dir = "samples",
         if (isTRUE(write_fcs)) {
             marker_source <- if (using_static_W) rownames(W_use) else rownames(M)
             markers_to_keep <- intersect(colnames(res_obj$data), marker_source)
-            scatter_cols <- grep("FSC|SSC", colnames(res_obj$data), value = TRUE)
+            scatter_cols <- grep("FSC|SSC|SCC", colnames(res_obj$data), value = TRUE, ignore.case = TRUE)
             cols_to_write <- c(markers_to_keep, scatter_cols)
             unmixed_exprs <- as.matrix(res_obj$data[, cols_to_write, drop = FALSE])
             
