@@ -1,14 +1,14 @@
 # spectrQC: Full Spectrum Flow Cytometry Quality Control
 
-`spectrQC` is an R package for validating spectral unmixing accuracy. It provides a complete pipeline to extract fluorophore signatures from single-color controls, refine them using quality metrics, and unmix experimental samples.
+`spectrQC` is an R package for reviewing single-color controls, building spectral reference matrices, and unmixing experimental samples.
 
 ## Key Features
 
 - **Automated Gating**: Isolate positive populations from beads or cells using Gaussian Mixture Models
 - **Background Subtraction**: Automatically subtract internal negative populations to isolate pure fluorophore signatures
-- **Signature Refinement**: Remove debris and outliers using RRMSE-based filtering
+- **Pre-Unmix SCC Review**: Generate a PDF with per-control gating, histogram, and spectrum diagnostics before unmixing
 - **Per-Cell WLS Unmixing**: High-accuracy unmixing using photon-counting variance weighting
-- **SCC Diagnostics & Visualization**: Spectra and SCC unmixing scatter outputs for control-stage QC
+- **SCC Diagnostics & Visualization**: Spectra, gating plots, and SCC unmixing scatter outputs for control-stage QC
 - **Interactive GUI**: Web-based interface for manual matrix adjustment
 
 ---
@@ -68,11 +68,31 @@ Logic:
 
 ### Path A: Recommended Quick Workflow
 
-#### Step 1: Run controls with `autounmix_controls()`:
+#### Step 1: Generate the SCC review report with `generate_scc_report()`:
 
 ```r
 library(spectrQC)
 
+generate_scc_report(
+  scc_dir = "scc",
+  control_file = "fcs_control_file.csv",
+  cytometer = "Aurora",
+  output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf")
+)
+```
+
+Use this report to inspect each SCC before unmixing. The PDF includes:
+- FSC/SSC auto-gating per control
+- peak-channel histogram gating per control
+- per-control spectrum distributions
+- global reference spectra overlay
+- spectral spread matrix
+
+The report also writes the underlying PNG QC assets to `spectrQC_outputs/scc_report_plots/`.
+
+#### Step 2: Run controls with `autounmix_controls()`:
+
+```r
 ctrl <- autounmix_controls(
   scc_dir = "scc",
   control_file = "fcs_control_file.csv",
@@ -109,7 +129,18 @@ Set `unmix_scatter_panel_size_mm` higher (for example `40`) if you want larger p
 
 ---
 
-#### Step 2: Unmix samples using the unmixing matrix generated in the autounmix_controls step.
+#### Step 3: Launch the GUI if you need manual matrix adjustment.
+
+```r
+launch_gui(
+  matrix_dir = "spectrQC_outputs/autounmix_controls",
+  samples_dir = "samples"
+)
+```
+
+This starts both the backend API and bundled frontend on one port (default `http://localhost:8000`) and opens it in your browser.
+
+#### Step 4: Unmix samples using the unmixing matrix generated in the autounmix_controls step.
 
 ```r
 # Uses saved unmixing matrix by filepath (default points to autounmix_controls output)
@@ -119,9 +150,6 @@ unmixed <- unmix_samples(
   output_dir = "spectrQC_outputs/unmix_samples"
 )
 ```
-
-When `M` is not supplied in this static mode, `unmix_samples()` will auto-load
-`scc_reference_matrix.csv` from the same folder (if present) to compute RMSE/RRMSE QC metrics.
 
 ### Path B: Step-wise manual workflow
 
@@ -165,35 +193,15 @@ M <- build_reference_matrix(
 
 ---
 
-#### Step 2: Refine the Matrix
+#### Step 2: Unmix Experimental Samples
 
-Remove outliers using RRMSE-based filtering:
-
-```r
-refined <- refine_scc_matrix(
-  M = M,
-  scc_dir = "scc",
-  rrmse_threshold = 0.05,             # Remove events with >5% error
-  output_dir = "scc_unmixed"
-)
-
-M_final <- refined$M                  # Refined reference matrix
-W_final <- refined$W                  # Unmixing matrix
-```
-
-This exports `refined_reference_matrix.csv` and `refined_unmixing_matrix.csv`.
-
----
-
-#### Step 3: Unmix Experimental Samples
-
-Apply the refined matrix to your samples:
+Apply the reference matrix to your samples:
 
 ```r
 # Option 1: dynamic unmixing directly from reference matrix (M)
 unmixed <- unmix_samples(
   sample_dir = "samples",
-  M = M_final,
+  M = M,
   method = "WLS",                     # "OLS", "WLS", or "NNLS"
   cytometer = "Aurora",
   output_dir = "spectrQC_outputs/unmix_samples"
@@ -214,7 +222,7 @@ unmixed_w <- unmix_samples(
 
 ---
 
-### Optional: Interactive Matrix Adjustment (before Step 3)
+### Optional: Interactive Matrix Adjustment (before sample unmixing)
 
 For manual fine-tuning, use the web interface.
 
@@ -228,8 +236,6 @@ launch_gui(
   samples_dir = "samples"
 )
 ```
-
-This starts both the backend API and bundled frontend on one port (default `http://localhost:8000`) and opens it in your browser.
 
 Developer mode (optional, for GUI hacking):
 
@@ -259,16 +265,13 @@ If you run the manual path with `build_reference_matrix(...)`, `output_folder` (
 
 ---
 
-## Legacy Report APIs (Optional)
-
-The package still exports report helpers for legacy workflows, but report generation is not part of the recommended quick workflow.
-Reports now render directly to PDF only (no intermediate PNG files).
+## Report APIs
 
 ```r
-# SCC report (singular function name)
+# SCC review report (recommended before autounmix_controls)
 generate_scc_report(
-  M = ctrl$M,  # reference matrix from build_reference_matrix() or autounmix_controls()$M
   scc_dir = "scc",
+  control_file = "fcs_control_file.csv",
   output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf")
 )
 
@@ -287,11 +290,12 @@ r$> generate_qc_report(
 Use the same rule everywhere: first look for consistency across files/markers, then look for outlier structures that repeat in specific channels or populations.
 
 - `Reference Spectra Overlay`: Good = each fluorophore shows a clear dominant detector profile with smooth shape. Bad = noisy, flattened, or unexpectedly broad/overlapping profiles. Action = recheck SCC gating, fluorophore labels, and control quality.
+- `FSC/SSC Auto-Gate`: Good = the gate captures the main bead/cell cloud and excludes obvious debris/outliers. Bad = clipped main populations or large debris regions retained. Action = review sample type, scatter distributions, and gating parameters.
+- `Peak-Channel Histogram Gate`: Good = the kept interval isolates the bright positive population. Bad = the interval covers mostly negative/background events or misses the dominant bright peak. Action = verify the control-file channel and the single-stain identity.
+- `Per-Event Spectrum Distribution`: Good = the spectral shape is smooth and concentrated in the expected detector region. Bad = broad, noisy, or multimodal distributions that do not match the assigned fluorophore. Action = inspect labeling, staining quality, and instrument setup.
 - `Unmixing Matrix Coefficients`: Good = strongest coefficients align with expected detector-marker relationships and off-target coefficients are moderate. Bad = many large off-target coefficients across rows. Action = inspect collinear markers, low-quality controls, or unstable matrix inversion.
 - `Unmixing Scatter Matrix` (SCC controls): Good = row-stain events are high on Y while X (other markers) stays near zero. Bad = large off-axis/off-target clouds in lower-triangle panels. Action = inspect spillover-heavy pairs and verify single-stain identity.
 - `Spectral Spread Matrix`: Good = mostly low off-diagonal spread values. Bad = bright/high off-diagonal cells for specific marker pairs. Action = avoid those pairs for dim co-expression readouts or adjust panel design.
-- `Morphology vs Unmixing Error` (FSC/SSC colored by RRMSE): Good = most cells remain low-error without regional hotspots. Bad = concentrated high-error clusters in FSC/SSC space. Action = tighten debris/doublet/dead-cell gates and confirm matrix fit for that population.
-- `Marker Intensity vs Unmixing Error`: Good = trend stays flat or decreases with intensity; most events remain below 5% RRMSE. Bad = upward trend as intensity increases. Action = revisit that marker signature and detector behavior (linearity/saturation).
 - `Residual Contributions`: Good = median residual per detector stays near zero. Bad = systematic positive/negative shifts in specific detectors. Action = investigate missing fluorophores, detector drift, or matrix mismatch in affected detector groups.
 - `Negative Population Spread (NPS)`: Good = low and comparable MAD across files and markers. Bad = isolated high bars in selected markers/files. Action = identify bright spreaders into those channels and rebalance panel usage.
 

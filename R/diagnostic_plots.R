@@ -1,7 +1,8 @@
 #' Plot Detector-Level Residuals
 #' 
-#' Identifies which detectors contribute most to the unmixing error for high-RRMSE cells.
-#' Overlays the reference signatures to help identify the source of the mismatch.
+#' Identifies which detectors contribute most to the unmixing mismatch for the
+#' highest-residual cells. Overlays the reference signatures to help identify
+#' the source of the mismatch.
 #' 
 #' @param res_list List returned by calc_residuals with return_residuals=TRUE
 #' @param M Reference matrix
@@ -27,8 +28,10 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
         return(NULL)
     }
 
-    # Identify high-error cells
-    idx <- order(data$Relative_RMSE, decreasing = TRUE)[1:min(top_n, nrow(data))]
+    # Identify highest-residual cells by detector residual energy
+    residual_score <- sqrt(rowMeans(residuals^2, na.rm = TRUE))
+    residual_score[!is.finite(residual_score)] <- -Inf
+    idx <- order(residual_score, decreasing = TRUE)[1:min(top_n, nrow(data))]
     R_sub <- residuals[idx, , drop = FALSE]
     
     # Convert to long format for plotting
@@ -106,7 +109,7 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
             size = 1.1
         ) +
         ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-        ggplot2::labs(title = paste("Residual Contributions for Top", top_n, "High-Error Cells"),
+        ggplot2::labs(title = paste("Residual Contributions for Top", top_n, "Highest-Residual Cells"),
                       subtitle = "Good: median residual (black) stays near 0 across detectors. Bad: consistent detector-specific shifts (positive/negative) indicate missing signatures, matrix mismatch, or calibration drift.",
                       x = "Detector", y = "Residual Value / Scaled Signature") +
         ggplot2::scale_y_continuous(
@@ -142,7 +145,7 @@ plot_detector_residuals <- function(res_list, M, top_n = 50, output_file = "dete
 #' @export
 calculate_nps <- function(data, markers = NULL) {
     if (is.null(markers)) {
-        exclude <- c("RMSE_Score", "Relative_RMSE", "FSC-A", "SSC-A", "File")
+        exclude <- .get_result_metadata_columns(colnames(data))
         markers <- setdiff(colnames(data), exclude)
     }
     

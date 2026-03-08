@@ -9,7 +9,7 @@ vignette: >
 
 # spectrQC: Spectral Unmixing Quality Control
 
-This tutorial walks you through the complete spectrQC workflow for validating spectral flow cytometry unmixing.
+This tutorial walks you through the complete spectrQC workflow for reviewing single-color controls, building a spectral reference matrix, and unmixing experimental samples.
 
 ```{r}
 library(spectrQC)
@@ -73,7 +73,24 @@ Review and edit the generated `fcs_control_file.csv` to ensure correct fluoropho
 
 ***
 
-# Step 1: Build Reference Matrix
+# Step 1: Generate the SCC Review Report
+
+Review the SCC files before unmixing:
+
+
+    generate_scc_report(
+      scc_dir = "scc",
+      control_file = "fcs_control_file.csv",
+      cytometer = "Aurora",
+      output_file = "SCC_QC_Report.pdf"
+    )
+
+
+The report includes per-control FSC/SSC gating, histogram gating, spectrum plots, a global spectra overlay, and the spectral spread matrix.
+
+***
+
+# Step 2: Build Reference Matrix
 
 Extract spectral signatures from single-color controls:
 
@@ -113,53 +130,42 @@ If auto-gating fails, fine-tune these settings:
 
 ***
 
-# Step 2: Generate SCC Report
+# Step 3: Run Control Unmixing
 
-Review the extracted spectral signatures:
+Generate the saved reference and unmixing matrices, plus the SCC unmixing scatter matrix:
 
 
-    generate_scc_report(
-      M = M,
+    ctrl <- autounmix_controls(
       scc_dir = "scc",
-      output_file = "SCC_QC_Report.pdf"
+      control_file = "fcs_control_file.csv",
+      cytometer = "Aurora",
+      output_dir = "spectrQC_outputs/autounmix_controls"
     )
 
 
-**Check for:**
-- Smooth spectral curves with distinct peaks
-- Absence of jagged lines or unexpected peaks
-- Low values in the Spectral Spread Matrix
-
 ***
 
-# Step 3: Refine the Matrix
+# Step 4: Launch the GUI (Optional)
 
-Remove debris and outliers using RRMSE-based filtering:
+For manual matrix adjustment:
 
 
-    refined <- refine_scc_matrix(
-      M = M,
-      scc_dir = "scc",
-      rrmse_threshold = 0.05,
-      output_dir = "scc_unmixed"
+    launch_gui(
+      matrix_dir = "spectrQC_outputs/autounmix_controls",
+      samples_dir = "samples"
     )
-    
-    M_final <- refined$M
-    W_final <- refined$W
 
-
-This exports `refined_reference_matrix.csv` and `refined_unmixing_matrix.csv`.
 
 ***
 
-# Step 4: Unmix Experimental Samples
+# Step 5: Unmix Experimental Samples
 
-Apply the refined matrix to your experimental data:
+Apply the reference or unmixing matrix to your experimental data:
 
 
     unmixed <- unmix_samples(
       sample_dir = "samples",
-      M = M_final,
+      M = M,
       method = "WLS",
       output_dir = "spectrQC_outputs/unmix_samples"
     )
@@ -175,50 +181,13 @@ Apply the refined matrix to your experimental data:
 
 ***
 
-# Interactive Matrix Adjustment
-
-For manual fine-tuning, use the web interface.
-
-## First-time setup (once)
-
-No terminal setup is required for end users. The GUI is bundled with the package.
-
-
-## Launch the GUI
-
-
-    launch_gui(
-      matrix_dir = getwd(),
-      samples_dir = "samples"
-    )
-
-
-This starts both the backend API and bundled frontend automatically, opening `http://localhost:8000`.
-
-For frontend development only:
-
-
-    launch_gui(
-      matrix_dir = getwd(),
-      samples_dir = "samples",
-      dev_mode = TRUE
-    )
-
-**Features:**
-
-- Drag on residual plots to adjust crosstalk coefficients
-- Real-time unmixing preview
-- Export adjusted matrices
-
-***
-
 # Function Reference
 
 | Function | Purpose |
 |----------|---------|
+| `generate_scc_report()` | Review SCC quality before unmixing |
 | `build_reference_matrix()` | Extract signatures from single-color controls |
-| `generate_scc_report()` | Generate SCC quality report (PDF) |
-| `refine_scc_matrix()` | Clean matrix using RRMSE filtering |
+| `autounmix_controls()` | Build/save control-stage matrices and SCC unmix outputs |
 | `unmix_samples()` | Unmix experimental FCS files |
 | `launch_gui()` | Launch interactive web interface |
 

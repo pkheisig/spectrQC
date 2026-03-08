@@ -21,21 +21,20 @@ launch_gui(
 
 \item{open_browser}{Logical. Open browser automatically? (default: TRUE)}
 
-\item{dev_mode}{Logical. If \code{FALSE} (default), serves bundled GUI assets from the
-package and requires no Node.js/npm on user machines. If \code{TRUE}, starts the Vite
-dev server (\code{npm run dev}) from the GUI source folder.}
+\item{dev_mode}{Logical. If `FALSE` (default), serves bundled GUI assets from the
+package and requires no Node.js/npm on user machines. If `TRUE`, starts the Vite
+dev server (`npm run dev`) from the GUI source folder.}
 }
 \value{
 Invisibly returns NULL. This function blocks while the API is running.
 }
 \description{
 Starts the backend Plumber API for the interactive matrix adjustment interface.
-By default, the frontend is served from bundled package assets (no npm required).
+By default, the frontend is served from bundled package assets.
 }
 \examples{
-args(launch_gui)
 \dontrun{
-# Start API + bundled GUI (recommended)
+# Start API + bundled GUI (recommended for users; no npm required)
 launch_gui()
 
 # Start with custom matrix directory

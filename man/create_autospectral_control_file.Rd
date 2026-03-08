@@ -45,7 +45,6 @@ for manual completion.
 Generates the CSV file required by the AutoSpectral package.
 }
 \examples{
-args(create_autospectral_control_file)
 \dontrun{
 control_df <- create_autospectral_control_file(
   input_folder = "scc",

@@ -5,39 +5,55 @@
 \title{Generate SCC QC Report}
 \usage{
 generate_scc_report(
-  M,
+  M = NULL,
   scc_dir = "scc",
   output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf"),
-  custom_fluorophores = NULL,
-  png_dir = NULL,
-  control_file = "fcs_control_file.csv"
+  control_df = NULL,
+  control_file = "fcs_control_file.csv",
+  cytometer = "Aurora",
+  qc_plot_dir = file.path("spectrQC_outputs", "scc_report_plots"),
+  include_multi_af = FALSE,
+  af_dir = "af",
+  include_ssm = TRUE,
+  ...
 )
 }
 \arguments{
-\item{M}{Reference matrix.}
+\item{M}{Optional precomputed reference matrix. If omitted, the report uses the
+matrix generated from the supplied SCC files.}
 
 \item{scc_dir}{Directory containing SCC FCS files.}
 
 \item{output_file}{Path to save the PDF report.}
 
-\item{custom_fluorophores}{Deprecated and ignored.}
+\item{control_df}{Optional control mapping data.frame or CSV path.}
 
-\item{png_dir}{Deprecated and ignored (kept for backward compatibility).}
+\item{control_file}{Control mapping CSV path used when `control_df` is `NULL`.}
 
-\item{control_file}{Deprecated and ignored.}
+\item{cytometer}{Cytometer name passed to [build_reference_matrix()].}
+
+\item{qc_plot_dir}{Directory where FSC/SSC, histogram, and spectrum PNGs are written.}
+
+\item{include_multi_af}{Logical; forward to [build_reference_matrix()].}
+
+\item{af_dir}{AF directory forwarded to [build_reference_matrix()].}
+
+\item{include_ssm}{Logical; include the spectral spread matrix page.}
+
+\item{...}{Additional arguments forwarded to [build_reference_matrix()].}
 }
 \value{
-Invisibly returns `NULL`; writes SCC audit PDF.
+Invisibly returns a list with `M`, `qc_summary`, and `qc_plot_dir`.
 }
 \description{
-Generate SCC QC Report
+Builds a reference matrix from single-color controls, writes QC plots for each
+control, and assembles a PDF report for pre-unmix review.
 }
 \examples{
-args(generate_scc_report)
 \dontrun{
 generate_scc_report(
-  M = M,
   scc_dir = "scc",
+  control_file = "fcs_control_file.csv",
   output_file = file.path("spectrQC_outputs", "SCC_QC_Report.pdf")
 )
 }

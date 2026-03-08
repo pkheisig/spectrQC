@@ -293,6 +293,7 @@ build_reference_matrix <- function(
     }
 
     results_list <- list()
+    qc_summary_list <- list()
 
     # 1.1 Add files from AF directory if requested
     fcs_files_all <- fcs_files
@@ -589,6 +590,19 @@ build_reference_matrix <- function(
         }
 
         results_list[[sn]] <- data.table::data.table(sample = sn, fluorophore = fluor_name, type = sample_info$type, n_total = nrow(raw_data), n_final = nrow(final_gated_data), spectrum = list(spectrum_norm))
+        qc_summary_list[[sn]] <- data.table::data.table(
+            sample = sn,
+            fluorophore = fluor_name,
+            type = sample_info$type,
+            peak_channel = peak_channel,
+            fsc_channel = fsc,
+            ssc_channel = ssc,
+            n_total = nrow(raw_data),
+            n_scatter_gated = nrow(gated_data),
+            n_final = nrow(final_gated_data),
+            scatter_gate_pct = round(100 * nrow(gated_data) / max(nrow(raw_data), 1), 1),
+            histogram_gate_pct = round(100 * nrow(final_gated_data) / max(nrow(gated_data), 1), 1)
+        )
     }
     results_dt <- data.table::rbindlist(results_list)
     spectra_list <- results_dt$spectrum
@@ -609,5 +623,11 @@ build_reference_matrix <- function(
     reference_matrix_file <- file.path(output_root, "reference_matrix.csv")
     utils::write.csv(M_df[, c("file", colnames(M)), drop = FALSE], reference_matrix_file, row.names = FALSE, quote = TRUE)
     message("Reference matrix (", nrow(M), " markers) saved to: ", reference_matrix_file)
+    if (length(qc_summary_list) > 0) {
+        attr(M, "qc_summary") <- data.table::rbindlist(qc_summary_list)
+    }
+    if (isTRUE(save_qc_plots)) {
+        attr(M, "qc_plot_dir") <- out_path
+    }
     return(M)
 }

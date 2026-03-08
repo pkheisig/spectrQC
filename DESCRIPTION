@@ -15,6 +15,7 @@ Imports:
     mclust,
     nnls,
     plumber,
+    png,
     scales,
     sp,
     tidyr

@@ -5,8 +5,10 @@
 #' @param file_name Optional file name to add to output
 #' @param method Unmixing method: "OLS" (default), "NNLS", or "WLS" (per-cell weighted)
 #' @param background_noise Baseline electronic noise variance (default: 25)
-#' @param return_residuals Logical. If TRUE, returns a list containing the unmixed data and the raw residual matrix.
-#' @return Data frame with unmixed abundances, RMSE, Relative_RMSE, and scatter parameters. 
+#' @param return_residuals Logical. If TRUE, returns a list containing the unmixed
+#'   data and the detector residual matrix.
+#' @return Data frame with unmixed abundances and retained acquisition parameters
+#'   (`Time` plus all `FSC*`/`SSC*` columns, when available).
 #'         If return_residuals=TRUE, returns a list with [[data]] and [[residuals]].
 #' @examples
 #' \dontrun{
@@ -94,24 +96,10 @@ calc_residuals <- function(flow_frame, M, file_name = NULL, method = "OLS",
 
     Fitted <- A %*% M
     R <- Y - Fitted
-    rmse <- sqrt(rowMeans(R^2))
-    
-    # Relative RMSE: RMSE / Total Intensity across detectors
-    total_intensity <- rowSums(Y)
-    relative_rmse <- rmse / pmax(total_intensity, 1)
-
     out <- as.data.frame(A)
     colnames(out) <- rownames(M)
-    out$RMSE_Score <- rmse
-    out$Relative_RMSE <- relative_rmse
 
-    # Add all scatter-like channels (FSC/SSC/SCC) if available
-    all_cols <- colnames(full_data)
-    scatter_cols <- grep("FSC|SSC|SCC", all_cols, value = TRUE, ignore.case = TRUE)
-    scatter_cols <- setdiff(scatter_cols, colnames(out))
-    if (length(scatter_cols) > 0) {
-        out[, scatter_cols] <- as.data.frame(full_data[, scatter_cols, drop = FALSE])
-    }
+    out <- .append_passthrough_parameters(out, full_data, detector_names = detectors)
 
     if (!is.null(file_name)) out$File <- file_name
 

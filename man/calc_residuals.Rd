@@ -24,17 +24,18 @@ calc_residuals(
 
 \item{background_noise}{Baseline electronic noise variance (default: 25)}
 
-\item{return_residuals}{Logical. If TRUE, returns a list containing the unmixed data and the raw residual matrix.}
+\item{return_residuals}{Logical. If TRUE, returns a list containing the unmixed
+data and the detector residual matrix.}
 }
 \value{
-Data frame with unmixed abundances, RMSE, Relative_RMSE, and scatter parameters. 
+Data frame with unmixed abundances and retained acquisition parameters
+  (`Time` plus all `FSC*`/`SSC*` columns, when available).
         If return_residuals=TRUE, returns a list with [[data]] and [[residuals]].
 }
 \description{
 Calculate unmixing residuals
 }
 \examples{
-args(calc_residuals)
 \dontrun{
 ff <- flowCore::read.FCS("samples/Sample1.fcs", transformation = FALSE)
 res <- calc_residuals(

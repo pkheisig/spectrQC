@@ -20,7 +20,6 @@ A `ggplot` object.
 Plot Negative Population Spread
 }
 \examples{
-args(plot_nps)
 \dontrun{
 nps <- calculate_nps(results_df)
 p <- plot_nps(nps, output_file = "nps_plot.png")

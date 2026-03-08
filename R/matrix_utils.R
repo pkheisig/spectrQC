@@ -64,3 +64,66 @@
     
     stop(arg_name, " must be a numeric matrix or a data.frame with detector columns.")
 }
+
+.is_passthrough_parameter <- function(param_names) {
+    if (length(param_names) == 0) {
+        return(logical(0))
+    }
+
+    param_names <- trimws(as.character(param_names))
+    is_scatter <- grepl("^(FSC|SSC)", param_names, ignore.case = TRUE)
+    is_time <- grepl("^TIME($|[^A-Z0-9])", param_names, ignore.case = TRUE)
+
+    is_scatter | is_time
+}
+
+.get_passthrough_parameter_names <- function(param_names, detector_names = character()) {
+    param_names <- as.character(param_names)
+    detector_names <- as.character(detector_names)
+
+    keep <- param_names[.is_passthrough_parameter(param_names)]
+    keep[!(keep %in% detector_names)]
+}
+
+.append_passthrough_parameters <- function(out, full_data, detector_names = character()) {
+    keep <- .get_passthrough_parameter_names(colnames(full_data), detector_names = detector_names)
+    if (length(keep) == 0) {
+        return(out)
+    }
+
+    out[keep] <- as.data.frame(full_data[, keep, drop = FALSE], check.names = FALSE)
+    out
+}
+
+.get_result_metadata_columns <- function(col_names) {
+    unique(c(
+        "File",
+        .get_passthrough_parameter_names(col_names)
+    ))
+}
+
+.get_primary_scatter_channels <- function(col_names) {
+    pick_primary <- function(prefix) {
+        exact <- col_names[toupper(col_names) == paste0(prefix, "-A")]
+        if (length(exact) > 0) {
+            return(exact[[1]])
+        }
+
+        area <- col_names[grepl(paste0("^", prefix, ".*-A$"), col_names, ignore.case = TRUE)]
+        if (length(area) > 0) {
+            return(area[[1]])
+        }
+
+        any_match <- col_names[grepl(paste0("^", prefix), col_names, ignore.case = TRUE)]
+        if (length(any_match) > 0) {
+            return(any_match[[1]])
+        }
+
+        NA_character_
+    }
+
+    list(
+        fsc = pick_primary("FSC"),
+        ssc = pick_primary("SSC")
+    )
+}
