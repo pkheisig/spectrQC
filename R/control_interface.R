@@ -239,6 +239,25 @@ create_control_file <- function(input_folder = "scc",
         ""
     }
 
+    infer_is_viability_from_filename <- function(fn, fluor_guess = "", marker_guess = "") {
+        stem <- tools::file_path_sans_ext(basename(fn))
+        stem_norm <- normalize_token(stem)
+        tok <- split_filename_tokens(stem)
+
+        # Explicit user-facing rule: if live/dead/viability is in the filename, mark viability.
+        if (any(tok %in% c("live", "dead", "viability"))) return("TRUE")
+        if (grepl("livedead", stem_norm, fixed = TRUE) ||
+            grepl("fixableviability", stem_norm, fixed = TRUE)) return("TRUE")
+
+        # Common viability dye families.
+        fluor_norm <- normalize_token(fluor_guess)
+        marker_norm <- normalize_token(marker_guess)
+        if (any(c(fluor_norm, marker_norm) %in% c("zombienir", "zombieaqua", "zombieviolet", "zombieuv", "zombiegreen", "zombiered", "zombieyellow"))) {
+            return("TRUE")
+        }
+        ""
+    }
+
     infer_fluor_from_filename <- function(fn) {
         stem <- tools::file_path_sans_ext(basename(fn))
         stem_norm <- normalize_token(stem)
@@ -412,6 +431,7 @@ create_control_file <- function(input_folder = "scc",
         if (grepl("Unstained|US_UT", fn, ignore.case = TRUE)) fluor <- "AF_Internal"
         marker <- infer_marker_from_filename(fn, fluor)
         control_type <- infer_control_type_from_filename(fn, fluor_guess = fluor, marker_guess = marker)
+        viability_flag <- infer_is_viability_from_filename(fn, fluor_guess = fluor, marker_guess = marker)
         
         scc_rows[[fn]] <- data.frame(
             filename = fn,
@@ -421,7 +441,7 @@ create_control_file <- function(input_folder = "scc",
             control.type = control_type,
             universal.negative = "",
             large.gate = "",
-            is.viability = "",
+            is.viability = viability_flag,
             stringsAsFactors = FALSE
         )
     }
@@ -573,6 +593,16 @@ create_control_file <- function(input_folder = "scc",
                 marker_guess = df$marker[i]
             )
         }
+
+        # Fill viability flag from filename/dye cues if still unresolved.
+        current_viability <- toupper(trimws(as.character(df$is.viability[i])))
+        if (is.na(current_viability) || current_viability == "") {
+            df$is.viability[i] <- infer_is_viability_from_filename(
+                fn,
+                fluor_guess = df$fluorophore[i],
+                marker_guess = df$marker[i]
+            )
+        }
     }
 
     # Final AF fixes (after channel + profile-based auto detection)
@@ -596,6 +626,12 @@ create_control_file <- function(input_folder = "scc",
     df$control.type[is.na(df$control.type)] <- ""
     invalid_type <- !(df$control.type %in% c("", "beads", "cells"))
     df$control.type[invalid_type] <- ""
+
+    # Normalize viability values to TRUE/blank.
+    df$is.viability <- toupper(trimws(as.character(df$is.viability)))
+    df$is.viability[is.na(df$is.viability)] <- ""
+    df$is.viability[df$is.viability %in% c("T", "TRUE", "1", "YES", "Y")] <- "TRUE"
+    df$is.viability[!(df$is.viability %in% c("", "TRUE"))] <- ""
 
     # AF-tagged rows are always cells.
     is_af_row <- grepl("^AF($|_)", as.character(df$fluorophore), ignore.case = TRUE)

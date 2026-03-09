@@ -26,6 +26,7 @@ testthat::test_that("create_control_file recognizes fluor and control type from 
 
     testthat::expect_equal(by_file[["LIVE DEAD NIR (Cells).fcs"]]$fluorophore[[1]], "LIVE/DEAD NIR")
     testthat::expect_equal(by_file[["LIVE DEAD NIR (Cells).fcs"]]$control.type[[1]], "cells")
+    testthat::expect_equal(by_file[["LIVE DEAD NIR (Cells).fcs"]]$is.viability[[1]], "TRUE")
 
     testthat::expect_equal(by_file[["PE-CF594 (Beads).fcs"]]$fluorophore[[1]], "PE-CF594")
     testthat::expect_equal(by_file[["PE-CF594 (Beads).fcs"]]$control.type[[1]], "beads")
@@ -41,4 +42,5 @@ testthat::test_that("create_control_file recognizes fluor and control type from 
 
     testthat::expect_equal(by_file[["PE (Beads).fcs"]]$fluorophore[[1]], "PE")
     testthat::expect_equal(by_file[["PE (Beads).fcs"]]$control.type[[1]], "beads")
+    testthat::expect_equal(by_file[["PE (Beads).fcs"]]$is.viability[[1]], "")
 })
