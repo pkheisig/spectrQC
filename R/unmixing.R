@@ -66,6 +66,90 @@ unmix_samples <- function(sample_dir = "samples",
         W_mat
     }
 
+    resolve_secondary_label_map <- function(primary_names) {
+        primary_names <- trimws(as.character(primary_names))
+        labels <- stats::setNames(primary_names, primary_names)
+        if (length(primary_names) == 0) return(labels)
+
+        opt_control <- getOption("spectreasy.control_file", "")
+        sample_parent <- dirname(normalizePath(sample_dir, mustWork = FALSE))
+        candidates <- unique(c(
+            as.character(opt_control),
+            .resolve_control_file_path("fcs_mapping.csv"),
+            file.path(sample_parent, "fcs_mapping.csv")
+        ))
+        candidates <- candidates[!is.na(candidates) & nzchar(trimws(candidates))]
+        existing <- candidates[file.exists(candidates)]
+        if (length(existing) == 0) return(labels)
+
+        control_df <- tryCatch(
+            utils::read.csv(existing[1], stringsAsFactors = FALSE, check.names = FALSE),
+            error = function(e) NULL
+        )
+        if (is.null(control_df) || nrow(control_df) == 0) return(labels)
+
+        lower_names <- tolower(colnames(control_df))
+        fluor_idx <- match("fluorophore", lower_names)
+        marker_idx <- match("marker", lower_names)
+        if (is.na(fluor_idx) || is.na(marker_idx)) return(labels)
+
+        fluor_vals <- trimws(as.character(control_df[[fluor_idx]]))
+        marker_vals <- trimws(as.character(control_df[[marker_idx]]))
+        keep <- !is.na(fluor_vals) & fluor_vals != "" & !is.na(marker_vals) & marker_vals != ""
+        if (!any(keep)) return(labels)
+
+        key <- tolower(fluor_vals[keep])
+        val <- marker_vals[keep]
+        map_ci <- stats::setNames(val, key)
+        map_ci <- map_ci[!duplicated(names(map_ci))]
+
+        for (nm in names(labels)) {
+            k <- tolower(trimws(nm))
+            if (k %in% names(map_ci) && nzchar(map_ci[[k]])) {
+                labels[[nm]] <- map_ci[[k]]
+            }
+        }
+        labels
+    }
+
+    apply_feature_secondary_labels <- function(target_ff, source_ff, marker_cols, secondary_label_map) {
+        pd_new <- flowCore::pData(flowCore::parameters(target_ff))
+        if (!all(c("name", "desc") %in% colnames(pd_new))) {
+            return(target_ff)
+        }
+
+        param_names <- as.character(pd_new$name)
+        desc_vals <- param_names
+
+        # Preserve source descriptions for passthrough acquisition parameters when available.
+        pd_src <- tryCatch(flowCore::pData(flowCore::parameters(source_ff)), error = function(e) NULL)
+        if (!is.null(pd_src) && all(c("name", "desc") %in% colnames(pd_src))) {
+            src_name <- as.character(pd_src$name)
+            src_desc <- as.character(pd_src$desc)
+            src_desc[is.na(src_desc)] <- ""
+            src_map <- stats::setNames(src_desc, src_name)
+            matched <- param_names %in% names(src_map)
+            desc_vals[matched] <- ifelse(
+                nzchar(src_map[param_names[matched]]),
+                src_map[param_names[matched]],
+                param_names[matched]
+            )
+        }
+
+        marker_cols <- as.character(marker_cols)
+        for (mk in marker_cols) {
+            idx <- which(param_names == mk)
+            if (length(idx) == 0) next
+            lbl <- if (mk %in% names(secondary_label_map)) secondary_label_map[[mk]] else mk
+            if (is.na(lbl) || !nzchar(trimws(lbl))) lbl <- mk
+            desc_vals[idx] <- as.character(lbl)
+        }
+
+        pd_new$desc <- desc_vals
+        flowCore::parameters(target_ff) <- methods::new("AnnotatedDataFrame", data = pd_new)
+        target_ff
+    }
+
     using_static_W <- FALSE
     W_use <- NULL
     if (!is.null(W)) {
@@ -125,6 +209,9 @@ unmix_samples <- function(sample_dir = "samples",
     }
 
     results <- list()
+    marker_source_all <- if (using_static_W) rownames(W_use) else rownames(M)
+    secondary_label_map <- resolve_secondary_label_map(marker_source_all)
+
     for (f in fcs_files) {
         sn <- tools::file_path_sans_ext(basename(f))
         message("  Unmixing sample: ", sn)
@@ -150,6 +237,12 @@ unmix_samples <- function(sample_dir = "samples",
             unmixed_exprs <- as.matrix(res_obj$data[, cols_to_write, drop = FALSE])
             
             new_ff <- flowCore::flowFrame(unmixed_exprs)
+            new_ff <- apply_feature_secondary_labels(
+                target_ff = new_ff,
+                source_ff = ff,
+                marker_cols = markers_to_keep,
+                secondary_label_map = secondary_label_map
+            )
             # Do not copy raw metadata wholesale; old spillover/parameter keywords
             # can become inconsistent with the unmixed channels and break downstream tools.
             
