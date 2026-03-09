@@ -90,7 +90,7 @@ build_reference_matrix <- function(
     }
 
     sample_patterns <- get_fluorophore_patterns()
-    fcs_files <- list.files(input_folder, pattern = "\\.fcs$", full.names = TRUE)
+    fcs_files <- list.files(input_folder, pattern = "\\.fcs$", full.names = TRUE, ignore.case = TRUE)
     if (length(fcs_files) == 0) stop("No FCS files found in ", input_folder)
 
     get_control_rows <- function(df, filenames) {
@@ -255,8 +255,13 @@ build_reference_matrix <- function(
         if (length(populations) == 1) {
             ell <- get_ellipse(gmm_result$means[, populations], gmm_result$sigmas[[populations]], level, scale = scale)
         } else {
-            all_pts <- data.table::rbindlist(lapply(populations, function(k) get_ellipse(gmm_result$means[, k], gmm_result$sigmas[[k]], level, scale = scale)))
-            ell <- all_pts[grDevices::chull(x, y), ]
+            all_pts <- data.table::rbindlist(
+                lapply(populations, function(k) {
+                    get_ellipse(gmm_result$means[, k], gmm_result$sigmas[[k]], level, scale = scale)
+                })
+            )
+            hull_idx <- grDevices::chull(all_pts$x, all_pts$y)
+            ell <- all_pts[hull_idx, ]
         }
         ell$x <- pmax(0, pmin(ell$x, clip_x))
         ell$y <- pmax(0, pmin(ell$y, clip_y))
@@ -298,7 +303,7 @@ build_reference_matrix <- function(
     # 1.1 Add files from AF directory if requested
     fcs_files_all <- fcs_files
     if (include_multi_af && dir.exists(af_dir)) {
-        af_files <- list.files(af_dir, pattern = "\\.fcs$", full.names = TRUE)
+        af_files <- list.files(af_dir, pattern = "\\.fcs$", full.names = TRUE, ignore.case = TRUE)
         message("Found ", length(af_files), " extra AF files in '", af_dir, "'")
         # Pre-pend AF files so they are processed
         fcs_files_all <- c(af_files, fcs_files)

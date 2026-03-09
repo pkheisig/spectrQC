@@ -27,9 +27,40 @@ const COLOR_PALETTES = {
 };
 
 const SCATTER_COLORS = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+
+const isUnmixingFilename = (filename: string) => {
+    const lower = filename.toLowerCase();
+    return lower.includes('unmixing') || lower.includes('w_');
+};
+
+const pickPreferredMatrix = (files: string[], current: string) => {
+    if (files.length === 0) return '';
+    if (current && files.includes(current)) return current;
+
+    const preferredNames = [
+        'scc_unmixing_matrix.csv',
+        'refined_unmixing_matrix.csv',
+        'scc_reference_matrix.csv',
+        'reference_matrix.csv',
+        'refined_reference_matrix.csv'
+    ];
+    for (const name of preferredNames) {
+        const hit = files.find(f => f.toLowerCase() === name);
+        if (hit) return hit;
+    }
+
+    const unmixingHit = files.find(isUnmixingFilename);
+    if (unmixingHit) return unmixingHit;
+
+    const referenceHit = files.find(f => f.toLowerCase().includes('reference'));
+    if (referenceHit) return referenceHit;
+
+    return files[0];
+};
+
 const App = () => {
     const [matrices, setMatrices] = useState<string[]>([]);
-    const [currentFile, setCurrentFile] = useState('refined_reference_matrix.csv');
+    const [currentFile, setCurrentFile] = useState('');
     const [sampleFiles, setSampleFiles] = useState<string[]>([]);
     const [currentSample, setCurrentSample] = useState('');
     const [sampleImportStatus, setSampleImportStatus] = useState<'idle' | 'importing' | 'loaded' | 'error'>('idle');
@@ -104,16 +135,28 @@ const App = () => {
     };
 
     const fetchData = async (filename = currentFile, sampleName = currentSample) => {
+        if (!filename) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
-        const resMatrix = await axios.get(`${API_BASE}/load_matrix?filename=${filename}`);
+        const resMatrix = await axios.get(`${API_BASE}/load_matrix?filename=${encodeURIComponent(filename)}`);
         if (!resMatrix.data.error) {
-            const matrixData = resMatrix.data;
+            const matrixData = Array.isArray(resMatrix.data) ? resMatrix.data : [];
+            if (matrixData.length === 0) {
+                setMatrix([]);
+                setDetectors([]);
+                setSelectedMarkers([]);
+                setUnmixedData([]);
+                setCurrentFile(filename);
+                setLoading(false);
+                return;
+            }
             setMatrix(matrixData);
-            const isUnmix = filename.toLowerCase().includes('unmixing') || filename.toLowerCase().includes('w_');
-            setIsUnmixingMatrix(isUnmix);
+            setIsUnmixingMatrix(isUnmixingFilename(filename));
             const detNames = Object.keys(matrixData[0]).filter(k => k !== 'Marker');
             setDetectors(detNames);
-            const allMarkers = matrixData.map((r: any) => r.Marker);
+            const allMarkers = matrixData.map((r: any) => r.Marker).filter((m: string) => !!m);
             setSelectedMarkers(allMarkers);
             const activeSample = sampleName && sampleName.length > 0 ? sampleName : (sampleFiles[0] || '');
             await fetchSampleData(activeSample, matrixData, filename, detNames);
@@ -126,15 +169,23 @@ const App = () => {
         const init = async () => {
             const [mats, samples] = await Promise.all([fetchMatrices(), fetchSamples()]);
             await fetchConfigs();
-            const firstMatrix = mats.includes(currentFile) ? currentFile : (mats[0] || currentFile);
+            const firstMatrix = pickPreferredMatrix(mats, currentFile);
             const firstSample = samples[0] || '';
             if (firstSample) setCurrentSample(firstSample);
-            await fetchData(firstMatrix, firstSample);
+            if (firstMatrix) {
+                await fetchData(firstMatrix, firstSample);
+            } else {
+                setLoading(false);
+            }
         };
         init();
     }, []);
 
     const runUnmix = async (currentM: any[], currentRaw: any[], filename = currentFile) => {
+        if (!Array.isArray(currentM) || currentM.length === 0 || !Array.isArray(currentRaw) || currentRaw.length === 0) {
+            setUnmixedData([]);
+            return;
+        }
         const M_obj: any = {};
         currentM.forEach(row => {
             M_obj[row.Marker] = { ...row };
@@ -142,7 +193,7 @@ const App = () => {
         });
         let useType = 'reference';
         if (typeof filename === 'string') {
-            if (filename.toLowerCase().includes('unmixing') || filename.toLowerCase().includes('w_')) useType = 'unmixing';
+            if (isUnmixingFilename(filename)) useType = 'unmixing';
         } else if (typeof filename === 'boolean') {
             useType = filename ? 'unmixing' : 'reference';
         }
@@ -151,7 +202,11 @@ const App = () => {
             raw_data_json: currentRaw,
             type: useType
         });
-        setUnmixedData(res.data);
+        if (Array.isArray(res.data)) {
+            setUnmixedData(res.data);
+        } else {
+            setUnmixedData([]);
+        }
     };
 
     const handleResidualAdjust = (xMarker: string, yMarker: string, alpha: number) => {

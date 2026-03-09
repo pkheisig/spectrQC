@@ -217,7 +217,10 @@ autounmix_controls <- function(
     M_df <- M_df[, c("Marker", setdiff(colnames(M_df), "Marker")), drop = FALSE]
     utils::write.csv(M_df, reference_matrix_csv, row.names = FALSE, quote = TRUE)
 
-    fcs_files <- list.files(scc_dir, pattern = "\\.fcs$", full.names = TRUE)
+    fcs_files <- list.files(scc_dir, pattern = "\\.fcs$", full.names = TRUE, ignore.case = TRUE)
+    if (length(fcs_files) == 0) {
+        stop("No FCS files found in scc_dir: ", scc_dir)
+    }
     ff_meta <- flowCore::read.FCS(fcs_files[1], transformation = FALSE, truncate_max_range = FALSE)
     pd <- flowCore::pData(flowCore::parameters(ff_meta))
 
@@ -231,7 +234,14 @@ autounmix_controls <- function(
         output_dir = unmixed_dir
     )
 
-    W <- derive_unmixing_matrix(M, method = "OLS")
+    static_unmixing_matrix_method <- "OLS"
+    if (toupper(unmix_method) != "OLS") {
+        warning(
+            "unmix_method = '", unmix_method, "' is used for SCC/sample unmixing, ",
+            "but the exported static matrix 'scc_unmixing_matrix.csv' is derived with OLS."
+        )
+    }
+    W <- derive_unmixing_matrix(M, method = static_unmixing_matrix_method)
     save_unmixing_matrix(W, unmixing_matrix_csv)
     p_unmix <- plot_unmixing_matrix(W, pd = pd)
     ggplot2::ggsave(unmixing_matrix_png, p_unmix, width = 200, height = 150, units = "mm")
@@ -265,6 +275,7 @@ autounmix_controls <- function(
         spectra_file = spectra_file,
         unmixing_matrix_plot = unmixing_matrix_png,
         unmixing_scatter_file = unmixing_scatter_png,
+        static_unmixing_matrix_method = static_unmixing_matrix_method,
         spectra_plot = p_spectra,
         unmixing_plot = p_unmix
     ))

@@ -78,7 +78,10 @@ generate_scc_report <- function(
 
     M_report <- if (is.null(M)) M_built else .as_reference_matrix(M, "M")
 
-    fcs_files <- list.files(scc_dir, pattern = "\\.fcs$", full.names = TRUE)
+    fcs_files <- list.files(scc_dir, pattern = "\\.fcs$", full.names = TRUE, ignore.case = TRUE)
+    if (length(fcs_files) == 0) {
+        stop("No FCS files found in scc_dir: ", scc_dir)
+    }
     ff_meta <- flowCore::read.FCS(fcs_files[1], transformation = FALSE, truncate_max_range = FALSE)
     pd <- flowCore::pData(flowCore::parameters(ff_meta))
 

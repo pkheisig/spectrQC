@@ -40,8 +40,22 @@ validate_control_file_mapping <- function(
         out
     }
 
+    normalize_channel <- function(x) {
+        out <- toupper(gsub("\\s+", "", trimws(as.character(x))))
+        out[is.na(out)] <- ""
+        out
+    }
+
+    channel_in_detectors <- function(channel_value, detector_names) {
+        key <- normalize_channel(channel_value)
+        if (!nzchar(key)) return(TRUE)
+        det_norm <- normalize_channel(detector_names)
+        candidates <- unique(c(key, gsub("-A$", "", key), paste0(key, "-A")))
+        any(candidates %in% det_norm)
+    }
+
     effective_scc_files <- function(dir_path) {
-        files <- list.files(dir_path, pattern = "\\.fcs$", full.names = FALSE)
+        files <- list.files(dir_path, pattern = "\\.fcs$", full.names = FALSE, ignore.case = TRUE)
         if (length(files) == 0) return(character())
         bases <- tools::file_path_sans_ext(files)
         aligned_idx <- grep("_aligned$", bases)
@@ -107,7 +121,7 @@ validate_control_file_mapping <- function(
 
         scc_files <- effective_scc_files(scc_dir)
         af_files <- if (include_multi_af && dir.exists(af_dir)) {
-            list.files(af_dir, pattern = "\\.fcs$", full.names = FALSE)
+            list.files(af_dir, pattern = "\\.fcs$", full.names = FALSE, ignore.case = TRUE)
         } else {
             character()
         }
@@ -150,7 +164,7 @@ validate_control_file_mapping <- function(
             pd <- flowCore::pData(flowCore::parameters(ff))
             det_names <- as_chr(pd$name)
             ch_vals <- unique(df$channel[df$filename == fn])
-            missing_channels <- setdiff(ch_vals, det_names)
+            missing_channels <- ch_vals[!vapply(ch_vals, channel_in_detectors, logical(1), detector_names = det_names)]
             if (length(missing_channels) > 0) {
                 errors <- c(errors, paste0("Invalid channel in ", fn, ": ", paste(missing_channels, collapse = ", ")))
             }

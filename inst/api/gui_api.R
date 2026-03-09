@@ -29,6 +29,31 @@ normalize_config_filename <- function(filename) {
     out
 }
 
+is_probably_matrix_csv <- function(path) {
+    df <- tryCatch(
+        utils::read.csv(path, stringsAsFactors = FALSE, check.names = FALSE, nrows = 200),
+        error = function(e) NULL
+    )
+    if (is.null(df) || !is.data.frame(df) || ncol(df) < 2) {
+        return(FALSE)
+    }
+
+    first_name <- tolower(trimws(colnames(df)[1]))
+    first_col <- df[[1]]
+    has_marker_col <- first_name %in% c("marker", "fluorophore", "file") || !is.numeric(first_col)
+    mat_df <- if (has_marker_col) df[, -1, drop = FALSE] else df
+    if (ncol(mat_df) == 0) {
+        return(FALSE)
+    }
+
+    numeric_ok <- vapply(mat_df, function(col) {
+        converted <- suppressWarnings(as.numeric(col))
+        all(is.na(col) | !is.na(converted))
+    }, logical(1))
+
+    mean(numeric_ok) >= 0.8
+}
+
 #* @filter logger
 function(req) {
     cat(as.character(Sys.time()), "-", req$REQUEST_METHOD, req$PATH_INFO, "\n")
@@ -56,9 +81,16 @@ function() {
 #* List available matrices
 #* @get /matrices
 function() {
-    files <- list.files(get_matrix_dir(), pattern = ".*\\.csv$")
-    # Return all CSVs
-    return(as.character(files))
+    files <- sort(list.files(get_matrix_dir(), pattern = ".*\\.csv$", ignore.case = TRUE))
+    if (length(files) == 0) {
+        return(character(0))
+    }
+    paths <- file.path(get_matrix_dir(), files)
+    keep <- vapply(paths, is_probably_matrix_csv, logical(1))
+    if (!any(keep)) {
+        return(as.character(files))
+    }
+    return(as.character(files[keep]))
 }
 
 #* List available sample files

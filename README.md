@@ -120,6 +120,9 @@ For newly auto-created files:
 - `scc_unmixing_matrix.png` and `scc_unmixing_matrix.csv`
 - `scc_unmixing_scatter_matrix.png` (lower-triangle scatter matrix, one single-stain file per row, with x=0/y=0 guides)
 
+Note: `scc_unmixing_matrix.csv` is exported as a static OLS matrix for deterministic downstream reuse.  
+`unmix_method` controls the actual control/sample unmixing engine during execution.
+
 Set `unmix_scatter_panel_size_mm` higher (for example `40`) if you want larger per-panel scatter plots.
 
 `autounmix_controls()` also runs a strict preflight check before processing:
@@ -276,11 +279,11 @@ generate_scc_report(
 )
 
 # Full sample-level report
-r$> generate_qc_report(
+generate_qc_report(
       results_df = do.call(rbind, lapply(unmixed, `[[`, "data")),
       M = ctrl$M,  # matrix used for unmixing context
       output_file = file.path("spectreasy_outputs", "Sample_QC_Report.pdf")
-    )
+)
 ```
 
 ---

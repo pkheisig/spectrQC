@@ -37,7 +37,7 @@ unmix_samples <- function(sample_dir = "samples",
         M <- .as_reference_matrix(M, "M")
     }
     dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-    fcs_files <- list.files(sample_dir, pattern = "\\.fcs$", full.names = TRUE)
+    fcs_files <- list.files(sample_dir, pattern = "\\.fcs$", full.names = TRUE, ignore.case = TRUE)
     
     if (length(fcs_files) == 0) stop("No FCS files found in ", sample_dir)
 

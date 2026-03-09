@@ -36,8 +36,12 @@ create_autospectral_control_file <- function(input_folder = "scc",
                                           output_file = "fcs_control_file.csv",
                                           custom_fluorophores = NULL) {
     unknown_fluor_policy <- match.arg(unknown_fluor_policy)
-    scc_files <- list.files(input_folder, pattern = "\\.fcs$", full.names = FALSE)
-    af_files <- if(include_af_folder && dir.exists(af_folder)) list.files(af_folder, pattern = "\\.fcs$", full.names = FALSE) else character(0)
+    scc_files <- list.files(input_folder, pattern = "\\.fcs$", full.names = FALSE, ignore.case = TRUE)
+    af_files <- if (include_af_folder && dir.exists(af_folder)) {
+        list.files(af_folder, pattern = "\\.fcs$", full.names = FALSE, ignore.case = TRUE)
+    } else {
+        character(0)
+    }
     
     if (length(scc_files) == 0) stop("No FCS files found in ", input_folder)
     
@@ -696,7 +700,7 @@ get_autospectral_spectra <- function(flow_frame,
 #' Internal Helper: Extract Gated AF Signatures
 #' @noRd
 extract_af_signatures <- function(af_dir, detector_names) {
-    af_files <- list.files(af_dir, pattern = "\\.fcs$", full.names = TRUE)
+    af_files <- list.files(af_dir, pattern = "\\.fcs$", full.names = TRUE, ignore.case = TRUE)
     if (length(af_files) == 0) return(matrix(0, nrow = 0, ncol = length(detector_names)))
     
     spectra <- list()
