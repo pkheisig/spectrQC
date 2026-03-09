@@ -112,7 +112,7 @@ If `fcs_mapping.csv` is missing and `auto_create_control = TRUE`, `autounmix_con
 `cytometer` is used for channel-aware fluorophore inference via spectreasy's shipped dictionaries and detector metadata.
 
 For newly auto-created files:
-- `control.type` is set to `cells` only for AF rows; all non-AF rows are left empty on purpose
+- `control.type` is auto-detected from filename tokens (`beads`/`cells`) when possible; AF rows are always `cells`
 - `universal.negative` is left empty by default for all rows
 - `autounmix_controls()` pauses and asks for `y/n` confirmation so you can review/edit the file first
 

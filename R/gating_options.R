@@ -66,7 +66,12 @@ get_fluorophore_patterns <- function() {
             "eFluor 506", "eFluor 780", "eFluor 455UV",
             "Zombie Aqua", "Zombie NIR", "Zombie UV", "Zombie Violet",
             "Zombie Green", "Zombie Red", "Zombie Yellow",
-            "LIVE/DEAD", "Fixable Viability", "Viability", "Calcein", "SYTOX"
+            "LIVE/DEAD", "LIVE DEAD", "LIVE/DEAD NIR", "LIVE DEAD NIR",
+            "LIVE/DEAD Aqua", "LIVE DEAD AQUA", "LIVE/DEAD Violet", "LIVE DEAD VIOLET",
+            "LIVE/DEAD Yellow", "LIVE DEAD YELLOW", "LIVE/DEAD Green", "LIVE DEAD GREEN",
+            "LIVE/DEAD Blue", "LIVE DEAD BLUE", "LIVE/DEAD Red", "LIVE DEAD RED",
+            "LIVE/DEAD Far Red", "LIVE DEAD FAR RED",
+            "Fixable Viability", "Viability", "Calcein", "SYTOX"
         )
     )
 }

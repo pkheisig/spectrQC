@@ -15,8 +15,8 @@
 #' @return A data frame containing the control file information.
 #'
 #' The generated file intentionally leaves `universal.negative` empty by default.
-#' It sets `control.type = "cells"` only for AF rows and leaves non-AF rows empty
-#' for manual completion.
+#' It auto-detects `control.type` from filename tokens (for example `"beads"`
+#' or `"cells"`), and forces AF rows to `cells`.
 #' @export
 #' @examples
 #' \dontrun{
@@ -173,17 +173,42 @@ create_control_file <- function(input_folder = "scc",
         c(existing, incoming)
     }
 
+    split_filename_tokens <- function(text) {
+        parts <- unlist(strsplit(as.character(text), "[^A-Za-z0-9]+"))
+        parts <- normalize_token(parts)
+        parts[nzchar(parts)]
+    }
+
+    build_compound_tokens <- function(tokens, max_n = 4) {
+        tokens <- tokens[nzchar(tokens)]
+        n <- length(tokens)
+        if (n == 0) return(character())
+        out <- tokens
+        max_n <- min(max_n, n)
+        if (max_n >= 2) {
+            for (w in 2:max_n) {
+                for (i in seq_len(n - w + 1)) {
+                    out <- c(out, paste0(tokens[i:(i + w - 1)], collapse = ""))
+                }
+            }
+        }
+        unique(out[nzchar(out)])
+    }
+
     detect_alias <- function(stem, alias_map, min_substring_n = 4) {
         if (length(alias_map) == 0) return("")
         stem_norm <- normalize_token(stem)
         if (!nzchar(stem_norm)) return("")
-        tokens <- unlist(strsplit(stem, "[-_\\.\\s]+"))
-        token_norm <- normalize_token(tokens)
+        token_norm <- split_filename_tokens(stem)
+        compounds <- build_compound_tokens(token_norm, max_n = 4)
         keys <- names(alias_map)
         keys <- keys[order(-nchar(keys))]
 
         for (k in keys) {
-            if (k %in% token_norm) return(unname(alias_map[[k]]))
+            if (k == stem_norm) return(unname(alias_map[[k]]))
+        }
+        for (k in keys) {
+            if (k %in% compounds) return(unname(alias_map[[k]]))
         }
         for (k in keys) {
             if (nchar(k) >= min_substring_n && grepl(k, stem_norm, fixed = TRUE)) {
@@ -201,18 +226,42 @@ create_control_file <- function(input_folder = "scc",
         ))
     }
 
+    infer_control_type_from_filename <- function(fn, fluor_guess = "", marker_guess = "") {
+        stem <- tools::file_path_sans_ext(basename(fn))
+        tok <- split_filename_tokens(stem)
+        if (any(tok %in% c("bead", "beads", "compbead", "compbeads"))) return("beads")
+        if (any(tok %in% c("cell", "cells", "pbmc", "lymphocyte", "lymphocytes", "splenocyte", "splenocytes"))) return("cells")
+
+        fluor_val <- trimws(as.character(fluor_guess))
+        marker_val <- trimws(as.character(marker_guess))
+        if (grepl("^AF($|_)", fluor_val, ignore.case = TRUE)) return("cells")
+        if (grepl("autofluorescence", marker_val, ignore.case = TRUE)) return("cells")
+        ""
+    }
+
     infer_fluor_from_filename <- function(fn) {
         stem <- tools::file_path_sans_ext(basename(fn))
+        stem_norm <- normalize_token(stem)
 
         if (!is.null(custom_fluorophores) && fn %in% names(custom_fluorophores)) {
             return(as.character(custom_fluorophores[fn]))
         }
 
+        # Hard-map frequent filename variants before generic matching.
+        if (grepl("livedeadnir", stem_norm, fixed = TRUE) ||
+            grepl("fixableviabilitynir", stem_norm, fixed = TRUE) ||
+            grepl("livedeadfixablenearir", stem_norm, fixed = TRUE)) {
+            return("LIVE/DEAD NIR")
+        }
+        if (grepl("zombienir", stem_norm, fixed = TRUE)) return("Zombie NIR")
+        if (grepl("pecf594", stem_norm, fixed = TRUE)) return("PE-CF594")
+        if (grepl("pecy7", stem_norm, fixed = TRUE)) return("PE-Cy7")
+        if (grepl("pefire700", stem_norm, fixed = TRUE)) return("PE-Fire 700")
+
         fluor_guess <- detect_alias(stem, fluor_name_map, min_substring_n = 4)
         if (nzchar(fluor_guess)) return(fluor_guess)
 
         if (grepl("^strep[-_]", stem, ignore.case = TRUE)) {
-            stem_norm <- normalize_token(stem)
             strep_map <- c(
                 "421" = "BV421", "510" = "BV510", "570" = "BV570", "605" = "BV605",
                 "650" = "BV650", "661" = "BV661", "711" = "BV711", "737" = "BV737",
@@ -226,9 +275,12 @@ create_control_file <- function(input_folder = "scc",
             if (grepl("pe", stem_norm, fixed = TRUE)) return("PE")
         }
 
+        fn_norm <- normalize_token(fn)
         for (p in fluor_patterns) {
-            if (grepl(p, fn, ignore.case = TRUE, fixed = TRUE)) {
-                key <- normalize_token(p)
+            key <- normalize_token(p)
+            literal_hit <- grepl(p, fn, ignore.case = TRUE, fixed = TRUE)
+            normalized_hit <- nzchar(key) && grepl(key, fn_norm, fixed = TRUE)
+            if (literal_hit || normalized_hit) {
                 if (key %in% names(fluor_name_map)) {
                     return(unname(fluor_name_map[[key]]))
                 }
@@ -359,13 +411,14 @@ create_control_file <- function(input_folder = "scc",
         # Check for internal AF
         if (grepl("Unstained|US_UT", fn, ignore.case = TRUE)) fluor <- "AF_Internal"
         marker <- infer_marker_from_filename(fn, fluor)
+        control_type <- infer_control_type_from_filename(fn, fluor_guess = fluor, marker_guess = marker)
         
         scc_rows[[fn]] <- data.frame(
             filename = fn,
             fluorophore = fluor,
             marker = marker,
             channel = "",
-            control.type = "",
+            control.type = control_type,
             universal.negative = "",
             large.gate = "",
             is.viability = "",
@@ -510,6 +563,16 @@ create_control_file <- function(input_folder = "scc",
         if (is.na(current_marker) || current_marker == "") {
             df$marker[i] <- infer_marker_from_filename(fn, df$fluorophore[i])
         }
+
+        # Fill control type from filename if still unresolved.
+        current_type <- trimws(as.character(df$control.type[i]))
+        if (is.na(current_type) || current_type == "") {
+            df$control.type[i] <- infer_control_type_from_filename(
+                fn,
+                fluor_guess = df$fluorophore[i],
+                marker_guess = df$marker[i]
+            )
+        }
     }
 
     # Final AF fixes (after channel + profile-based auto detection)
@@ -528,10 +591,15 @@ create_control_file <- function(input_folder = "scc",
     # Leave universal.negative empty by default for all rows.
     df$universal.negative <- ""
 
+    # Normalize control-type values and force AF rows to cells.
+    df$control.type <- tolower(trimws(as.character(df$control.type)))
+    df$control.type[is.na(df$control.type)] <- ""
+    invalid_type <- !(df$control.type %in% c("", "beads", "cells"))
+    df$control.type[invalid_type] <- ""
+
     # AF-tagged rows are always cells.
     is_af_row <- grepl("^AF($|_)", as.character(df$fluorophore), ignore.case = TRUE)
     df$control.type[is_af_row] <- "cells"
-    df$control.type[!is_af_row] <- ""
 
     # Normalize primary AF naming
     if (primary_af_file != "") {
